@@ -1,4 +1,9 @@
 use eframe::egui;
+use dicom_object::open_file;
+use dicom::dictionary_std::tags;
+use dicom_dump::dump_file;
+
+
 
 fn main() -> eframe::Result {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
@@ -6,6 +11,20 @@ fn main() -> eframe::Result {
         viewport: egui::ViewportBuilder::default().with_inner_size([320.0, 240.0]),
         ..Default::default()
     };
+
+
+
+
+    let obj = open_file("data/RGS3_J2KI.dcm")?;
+    dump_file(&obj)?;
+
+    //let patient_name = obj.element(tags::PATIENT_NAME).to_str();
+    //println!("Patient's name: {}", patient_name);
+
+    // check pixel data
+    //let pixel_data = obj.element(tags::PIXEL_DATA);
+
+
     eframe::run_native(
         "Voxium",
         options,

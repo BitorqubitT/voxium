@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+dicom = "0.9.0"
+dicom-dump = "0.9.0"
+dicom-object = "0.9.0"
 eframe = "0.33.3"
 egui = "0.33.3"
 egui_extras = { version = "0.33.3", features = ["image", "all_loaders"]}
