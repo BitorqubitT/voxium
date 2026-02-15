@@ -1,9 +1,22 @@
 use eframe::egui;
-use dicom_object::{DefaultDicomObject, FileDicomObject, InMemDicomObject, open_file};
+use dicom_object::{DefaultDicomObject, open_file};
+use dicom_pixeldata::{PixelDecoder};
+use image::DynamicImage;
 
 fn load_dicom() -> Result<DefaultDicomObject, dicom_object::ReadError> {
     open_file("data/RG3_J2KI.dcm")
 }
+
+fn convert_dicom_to_image(obj: DefaultDicomObject) -> Result<DynamicImage, Box<dyn std::error::Error>> {
+    //TODO: Should eventually check from meta data? what kind of image data it contains
+    //TODO: Make a seperate one for non 2d data?
+    let decoded = obj.decode_pixel_data()?;
+    let image = decoded.to_dynamic_image(0)?;
+    Ok(image)
+}
+
+
+
 
 fn main() -> eframe::Result {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
@@ -14,6 +27,9 @@ fn main() -> eframe::Result {
     
     let obj = load_dicom().expect("Failed to load Dicom");
     //dump_file(&obj);
+
+    let image_as_array = convert_dicom_to_image(obj);
+    println!("image:{:?}", image_as_array);
 
     eframe::run_native(
         "Voxium",
