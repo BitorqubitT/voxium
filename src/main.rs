@@ -19,16 +19,12 @@ fn convert_dicom_to_image(obj: DefaultDicomObject) -> Result<DynamicImage, Box<d
 fn upload_dicom(ctx: &egui::Context, image: DynamicImage) -> egui::TextureHandle{
 
     let size = [image.width() as usize, image.height() as usize];
-    
-    // 1. Convert to RGBA8 buffer
     let rgba_buffer = image.to_rgba8();
-    
-    // 2. Access the underlying Vec<u8> and turn it into a slice
-    let pixels = rgba_buffer.as_raw(); // This returns &Vec<u8>
+    let pixels = rgba_buffer.as_raw();
 
     let color_image = egui::ColorImage::from_rgba_unmultiplied(
         size,
-        pixels, // egui accepts &[u8] here
+        pixels,
     );
 
     ctx.load_texture("dicom_layer", color_image, Default::default())
@@ -37,7 +33,7 @@ fn upload_dicom(ctx: &egui::Context, image: DynamicImage) -> egui::TextureHandle
 
 
 fn main() -> eframe::Result {
-    env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
+    env_logger::init();
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default().with_inner_size([320.0, 240.0]),
         ..Default::default()
@@ -47,7 +43,6 @@ fn main() -> eframe::Result {
         "Voxium",
         options,
         Box::new(|cc| {
-            // This gives us image support:
             egui_extras::install_image_loaders(&cc.egui_ctx);
 
             Ok(Box::<MyApp>::default())
@@ -80,7 +75,6 @@ impl Default for MyApp {
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
 
-        //let id = Id::new("my_side_panel");
         egui::TopBottomPanel::top("my_top_panel").show(ctx, |ui| {
 
             egui::MenuBar::new().ui(ui, |ui| {
@@ -128,19 +122,8 @@ impl eframe::App for MyApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("My dicom viewer");
 
-            // This runs at compile time, so it won't work with dynamic paths.
-            //ui.add(egui::Image::new(egui::include_image!(image_location))
-            //        .max_width(self.image_size)
-            //        .corner_radius(10),
-            //);
-
-            //ui.add(egui::Image::from_uri(&self.image_path) // Use from_uri for dynamic paths
-            //   .max_width(self.image_size)
-            //    .corner_radius(10)
-            //);
+          
             if let Some(texture) = &self.texture {
-                // We pass the handle itself. egui will automatically 
-                // convert &TextureHandle into an ImageSource.
                 ui.image(texture); 
                 //ui.image(self.texture, self.texture.size_vec2());
             } else {
