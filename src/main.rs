@@ -8,7 +8,7 @@ fn main() -> eframe::Result {
         ..Default::default()
     };
     eframe::run_native(
-        "My egui App",
+        "Voxium",
         options,
         Box::new(|cc| {
             // This gives us image support:
@@ -21,18 +21,18 @@ fn main() -> eframe::Result {
 
 struct MyApp {
     name: String,
-    age: u32,
     height: u32,
-    weight: u32,
+    image_size: f32,
+    zoom_level: i32,
 }
 
 impl Default for MyApp {
     fn default() -> Self {
         Self {
             name: "Arthur".to_owned(),
-            age: 42,
             height: 180,
-            weight: 75,
+            image_size: 30.,
+            zoom_level: 100,
         }
     }
 }
@@ -40,36 +40,36 @@ impl Default for MyApp {
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
 
-        let id = Id::new("my_side_panel");
+        //let id = Id::new("my_side_panel");
+        egui::TopBottomPanel::top("my_top_panel").show(ctx, |ui| {
+            ui.menu_button("Menu", |ui| {
+                ui.label("Button 1");
+                ui.label("Button 2");
+                ui.label("Button 3");
+            });
+            ui.menu_button("Options", |ui| {
+                ui.label("Options 1");
+                ui.label("Options 2");
+            });
+        }); 
 
-        egui::SidePanel::left(id).show(ctx, |ui| {
+        egui::SidePanel::left("my_side_panel").show(ctx, |ui| {
             ui.heading("Left panel");
             ui.label("Add more widgets here.");
             ui.add(egui::Slider::new(&mut self.height, 140..=220).text("height"));
-            ui.add(egui::Slider::new(&mut self.weight, 50..=130).text("weight"));
+            ui.add(egui::Slider::new(&mut self.image_size, 50.0..=400.0).text("image size"));
+            ui.add(egui::Slider::new(&mut self.zoom_level, 40..=150).text("zoom level"));
         });
 
         // Always centrapnel as last one.
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("My dicom viewer");
 
-            ui.horizontal(|ui| {
-                let name_label = ui.label("Your name: ");
-                ui.text_edit_singleline(&mut self.name)
-                    .labelled_by(name_label.id);
-            });
+            ui.add(egui::Image::new(egui::include_image!("../assets/ferris.png"))
+                    .max_width(self.image_size)
+                    .corner_radius(10),
+            );
 
-            ui.add(egui::Slider::new(&mut self.age, 0..=120).text("age"));
-
-            if ui.button("Increment").clicked() {
-                self.age += 1;
-            }
-
-            ui.label(format!("Hello '{}', age {}", self.name, self.age));
-
-            ui.image(egui::include_image!(
-                "../assets/ferris.png"
-            ));
 
         });
     
