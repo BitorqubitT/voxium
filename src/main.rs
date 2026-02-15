@@ -1,5 +1,4 @@
 use eframe::egui;
-use crate::egui::Id;
 
 fn main() -> eframe::Result {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
@@ -20,7 +19,6 @@ fn main() -> eframe::Result {
 }
 
 struct MyApp {
-    name: String,
     height: u32,
     image_size: f32,
     zoom_level: i32,
@@ -29,7 +27,6 @@ struct MyApp {
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            name: "Arthur".to_owned(),
             height: 180,
             image_size: 30.,
             zoom_level: 100,
@@ -40,16 +37,36 @@ impl Default for MyApp {
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
 
+        let mut image_location = "../assets/ferris.png";
+
+
         //let id = Id::new("my_side_panel");
         egui::TopBottomPanel::top("my_top_panel").show(ctx, |ui| {
-            ui.menu_button("Menu", |ui| {
-                ui.label("Button 1");
-                ui.label("Button 2");
-                ui.label("Button 3");
-            });
-            ui.menu_button("Options", |ui| {
-                ui.label("Options 1");
-                ui.label("Options 2");
+
+            egui::MenuBar::new().ui(ui, |ui| {
+                ui.menu_button("File", |ui| {
+                    if ui.button("Button 1").clicked() {
+                        println!("Button 1 clicked");
+                    }
+                    if ui.button("Button 2").clicked() {
+                        println!("Button 2 clicked");
+                        self.image_size = 900.0;
+                    }
+
+                });
+                ui.menu_button("Options", |ui| {
+                    if ui.button("change ferris").clicked() {
+                        println!("Options 1 clicked");
+                        image_location = "../assets/ferris2.png";
+                    }
+                    ui.menu_button("More options", |ui|{
+                        if ui.button("More Options 1").clicked() {
+                            println!("Options 1 clicked");
+                            ui.close();
+                    }
+                    ui.label("Options 2");
+                    });
+                });
             });
         }); 
 
@@ -57,7 +74,7 @@ impl eframe::App for MyApp {
             ui.heading("Left panel");
             ui.label("Add more widgets here.");
             ui.add(egui::Slider::new(&mut self.height, 140..=220).text("height"));
-            ui.add(egui::Slider::new(&mut self.image_size, 50.0..=400.0).text("image size"));
+            ui.add(egui::Slider::new(&mut self.image_size, 50.0..=900.0).text("image size"));
             ui.add(egui::Slider::new(&mut self.zoom_level, 40..=150).text("zoom level"));
         });
 
@@ -65,13 +82,16 @@ impl eframe::App for MyApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("My dicom viewer");
 
-            ui.add(egui::Image::new(egui::include_image!("../assets/ferris.png"))
-                    .max_width(self.image_size)
-                    .corner_radius(10),
+            // This runs at compile time, so it won't work with dynamic paths.
+            //ui.add(egui::Image::new(egui::include_image!(image_location))
+            //        .max_width(self.image_size)
+            //        .corner_radius(10),
+            //);
+
+            ui.add(egui::Image::from_uri(image_location) // Use from_uri for dynamic paths
+                .max_width(self.image_size)
+                .corner_radius(10)
             );
-
-
         });
-    
     }
 }
