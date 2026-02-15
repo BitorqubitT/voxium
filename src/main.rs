@@ -11,11 +11,29 @@ fn convert_dicom_to_image(obj: DefaultDicomObject) -> Result<DynamicImage, Box<d
     //TODO: Should eventually check from meta data? what kind of image data it contains
     //TODO: Make a seperate one for non 2d data?
     let decoded = obj.decode_pixel_data()?;
+    // 0 is need because we give a stack of data? Multiple images? maaybe
     let image = decoded.to_dynamic_image(0)?;
     Ok(image)
 }
 
+fn upload_dicom(ctx: &egui::Context, image: DynamicImage) -> egui::TextureHandle{
 
+    let size = [image.width() as usize, image.height() as usize];
+    
+    // 1. Convert to RGBA8 buffer
+    let rgba_buffer = image.to_rgba8();
+    
+    // 2. Access the underlying Vec<u8> and turn it into a slice
+    let pixels = rgba_buffer.as_raw(); // This returns &Vec<u8>
+
+    let color_image = egui::ColorImage::from_rgba_unmultiplied(
+        size,
+        pixels, // egui accepts &[u8] here
+    );
+
+    ctx.load_texture("dicom_layer", color_image, Default::default())
+
+}
 
 
 fn main() -> eframe::Result {
@@ -24,12 +42,6 @@ fn main() -> eframe::Result {
         viewport: egui::ViewportBuilder::default().with_inner_size([320.0, 240.0]),
         ..Default::default()
     };
-    
-    let obj = load_dicom().expect("Failed to load Dicom");
-    //dump_file(&obj);
-
-    let image_as_array = convert_dicom_to_image(obj);
-    println!("image:{:?}", image_as_array);
 
     eframe::run_native(
         "Voxium",
@@ -48,6 +60,8 @@ struct MyApp {
     image_size: f32,
     zoom_level: i32,
     image_path: String,
+    dicom_image: Option<image::DynamicImage>,
+    texture: Option<egui::TextureHandle>,
 }
 
 impl Default for MyApp {
@@ -57,6 +71,8 @@ impl Default for MyApp {
             image_size: 30.,
             zoom_level: 100,
             image_path: "file://assets/ferris.png".to_owned(),
+            dicom_image: None,
+            texture: None,
         }
     }
 }
@@ -70,7 +86,13 @@ impl eframe::App for MyApp {
             egui::MenuBar::new().ui(ui, |ui| {
                 ui.menu_button("File", |ui| {
                     if ui.button("Button 1").clicked() {
-                        println!("Button 1 clicked");
+                        println!("loading file");
+                        let obj = load_dicom().expect("Failed to load Dicom");
+                        //dump_file(&obj);
+                        let image_as_array = convert_dicom_to_image(obj).expect("couldnt decode");
+                        let texture = Some(upload_dicom(ctx, image_as_array));
+
+                        // TODO: implement loading file here
                     }
                     if ui.button("Button 2").clicked() {
                         println!("Button 2 clicked");
@@ -112,10 +134,20 @@ impl eframe::App for MyApp {
             //        .corner_radius(10),
             //);
 
-            ui.add(egui::Image::from_uri(&self.image_path) // Use from_uri for dynamic paths
-                .max_width(self.image_size)
-                .corner_radius(10)
-            );
+            //ui.add(egui::Image::from_uri(&self.image_path) // Use from_uri for dynamic paths
+            //   .max_width(self.image_size)
+            //    .corner_radius(10)
+            //);
+            if let Some(texture) = &self.texture {
+                // We pass the handle itself. egui will automatically 
+                // convert &TextureHandle into an ImageSource.
+                ui.image(texture); 
+                //ui.image(self.texture, self.texture.size_vec2());
+            } else {
+                ui.label("Waiting for DICOM upload...");
+            }
+            
+
         });
     }
 }
