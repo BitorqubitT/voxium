@@ -1191,6 +1191,7 @@ dependencies = [
  "env_logger",
  "image",
  "ndarray",
+ "tags",
 ]
 
 [[package]]
@@ -4313,6 +4314,12 @@ dependencies = [
  "quote",
  "syn",
 ]
+
+[[package]]
+name = "tags"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4aca659dca42c82e292de51b165d55c33ad6017aa2eab7bc5e0dd8503e32b365"
 
 [[package]]
 name = "tempfile"

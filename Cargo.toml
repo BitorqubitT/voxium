@@ -14,3 +14,4 @@ egui_extras = { version = "0.33.3", features = ["image", "all_loaders"]}
 env_logger = "0.11.9"
 image = "0.25.9"
 ndarray = "0.17.2"
+tags = "0.1.0"

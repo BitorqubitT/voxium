@@ -1,20 +1,9 @@
 use eframe::egui;
-use dicom_object::{DefaultDicomObject, open_file};
+use dicom_object::{DefaultDicomObject, FileDicomObject, InMemDicomObject, open_file, ReadError, AccessError};
 use dicom_pixeldata::{PixelDecoder};
 use image::DynamicImage;
-
-fn load_dicom() -> Result<DefaultDicomObject, dicom_object::ReadError> {
-    open_file("data/RG3_J2KI.dcm")
-}
-
-fn convert_dicom_to_image(obj: DefaultDicomObject) -> Result<DynamicImage, Box<dyn std::error::Error>> {
-    //TODO: Should eventually check from meta data? what kind of image data it contains
-    //TODO: Make a seperate one for non 2d data?
-    let decoded = obj.decode_pixel_data()?;
-    // 0 is need because we give a stack of data? Multiple images? maaybe
-    let image = decoded.to_dynamic_image(0)?;
-    Ok(image)
-}
+use dicom_dump::dump_file;
+use dicom::dictionary_std::tags;
 
 fn main() -> eframe::Result {
     env_logger::init();
@@ -49,7 +38,7 @@ impl Default for MyApp {
             height: 180,
             image_size: 30.,
             zoom_level: 100,
-            image_path: "file://assets/ferris.png".to_owned(),
+            image_path: "data/RG3_J2KI.dcm".to_owned(),
             dicom_image: None,
             texture: None,
         }
@@ -73,6 +62,32 @@ impl MyApp {
 
     }
 
+    fn load_dicom(&self) -> Result<DefaultDicomObject, Box<dyn std::error::Error>> {
+
+        //TODO: Dirty soltion, maybe create enum with r ead and access error.
+        let obj = open_file(&self.image_path)?;
+
+        let file_name = obj.element(tags::DERIVATION_DESCRIPTION)?.to_str()?;
+        let image_comments = obj.element(tags::IMAGE_COMMENTS)?.to_str()?;
+
+        println!("standard {file_name} {image_comments}");
+
+        Ok(obj)
+    }
+
+    fn convert_dicom_to_image(&self, obj: FileDicomObject<InMemDicomObject>) -> Result<DynamicImage, Box<dyn std::error::Error>> {
+        //TODO: Should eventually check from meta data? what kind of image data it contains
+        //TODO: Make a seperate one for non 2d data?
+
+        // Check the type of decode ????? maybe get this from dicom meta data
+
+
+        let decoded = obj.decode_pixel_data()?;
+        // 0 is need because we give a stack of data? Multiple images? maaybe
+        let image = decoded.to_dynamic_image(0)?;
+        Ok(image)
+    }
+
 }
 
 
@@ -86,10 +101,10 @@ impl eframe::App for MyApp {
                 ui.menu_button("File", |ui| {
                     if ui.button("Button 1").clicked() {
                         println!("loading file");
-                        let obj = load_dicom().expect("Failed to load Dicom");
-                        //dump_file(&obj);
-                        let image_as_array = convert_dicom_to_image(obj).expect("couldnt decode");
-                        let texture = Some(self.upload_dicom(ctx, image_as_array));
+                        let obj = self.load_dicom().expect("Failed to load Dicom");
+                        dump_file(&obj);
+                        let image_as_array = self.convert_dicom_to_image(obj).expect("couldnt decode");
+                        self.texture = Some(self.upload_dicom(ctx, image_as_array));
 
                         // TODO: implement loading file here
                     }
@@ -135,7 +150,6 @@ impl eframe::App for MyApp {
                 ui.label("Waiting for DICOM upload...");
             }
             
-
         });
     }
 }
