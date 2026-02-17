@@ -16,22 +16,6 @@ fn convert_dicom_to_image(obj: DefaultDicomObject) -> Result<DynamicImage, Box<d
     Ok(image)
 }
 
-fn upload_dicom(ctx: &egui::Context, image: DynamicImage) -> egui::TextureHandle{
-
-    let size = [image.width() as usize, image.height() as usize];
-    let rgba_buffer = image.to_rgba8();
-    let pixels = rgba_buffer.as_raw();
-
-    let color_image = egui::ColorImage::from_rgba_unmultiplied(
-        size,
-        pixels,
-    );
-
-    ctx.load_texture("dicom_layer", color_image, Default::default())
-
-}
-
-
 fn main() -> eframe::Result {
     env_logger::init();
     let options = eframe::NativeOptions {
@@ -72,7 +56,28 @@ impl Default for MyApp {
     }
 }
 
+impl MyApp {
+
+    fn upload_dicom(&mut self, ctx: &egui::Context, image: DynamicImage) -> egui::TextureHandle{
+
+        let size = [image.width() as usize, image.height() as usize];
+        let rgba_buffer = image.to_rgba8();
+        let pixels = rgba_buffer.as_raw();
+
+        let color_image = egui::ColorImage::from_rgba_unmultiplied(
+            size,
+            pixels,
+        );
+
+        ctx.load_texture("dicom_layer", color_image, Default::default())
+
+    }
+
+}
+
+
 impl eframe::App for MyApp {
+
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
 
         egui::TopBottomPanel::top("my_top_panel").show(ctx, |ui| {
@@ -84,7 +89,7 @@ impl eframe::App for MyApp {
                         let obj = load_dicom().expect("Failed to load Dicom");
                         //dump_file(&obj);
                         let image_as_array = convert_dicom_to_image(obj).expect("couldnt decode");
-                        let texture = Some(upload_dicom(ctx, image_as_array));
+                        let texture = Some(self.upload_dicom(ctx, image_as_array));
 
                         // TODO: implement loading file here
                     }
