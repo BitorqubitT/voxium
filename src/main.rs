@@ -38,7 +38,7 @@ impl Default for MyApp {
             height: 180,
             image_size: 30.,
             zoom_level: 100,
-            image_path: "data/RG3_J2KI.dcm".to_owned(),
+            image_path: "data/1-001.dcm".to_owned(),
             dicom_image: None,
             texture: None,
         }
@@ -46,6 +46,18 @@ impl Default for MyApp {
 }
 
 impl MyApp {
+
+    fn determine_file_type(&mut self) -> String {
+
+        let parts: Vec<&str> = self.image_path.split(".").collect();
+        let filetype = parts.last().unwrap_or(&""); // get last part or empty string
+        println!("this is the type {:?}", filetype);
+        filetype.to_string() // return owned String
+    }
+
+    fn file_opener(&mut self) -> {
+
+    }
 
     fn upload_dicom(&mut self, ctx: &egui::Context, image: DynamicImage) -> egui::TextureHandle{
 
@@ -58,6 +70,7 @@ impl MyApp {
             pixels,
         );
 
+        // Only call this once
         ctx.load_texture("dicom_layer", color_image, Default::default())
 
     }
@@ -67,10 +80,7 @@ impl MyApp {
         //TODO: Dirty soltion, maybe create enum with r ead and access error.
         let obj = open_file(&self.image_path)?;
 
-        let file_name = obj.element(tags::DERIVATION_DESCRIPTION)?.to_str()?;
-        let image_comments = obj.element(tags::IMAGE_COMMENTS)?.to_str()?;
-
-        println!("standard {file_name} {image_comments}");
+        let sop_class = obj.element_by_name("SOPClassUID")?.to_str()?;
 
         Ok(obj)
     }
@@ -101,12 +111,16 @@ impl eframe::App for MyApp {
                 ui.menu_button("File", |ui| {
                     if ui.button("Button 1").clicked() {
                         println!("loading file");
+                        self.determine_file_type();
+                        //Check what file it is first
+                        // let file = self.file_loader().expect("cant handle this format");
+                        
                         let obj = self.load_dicom().expect("Failed to load Dicom");
-                        dump_file(&obj);
+                        //dump_file(&obj);
                         let image_as_array = self.convert_dicom_to_image(obj).expect("couldnt decode");
+                       
                         self.texture = Some(self.upload_dicom(ctx, image_as_array));
 
-                        // TODO: implement loading file here
                     }
                     if ui.button("Button 2").clicked() {
                         println!("Button 2 clicked");
