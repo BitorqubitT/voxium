@@ -32,6 +32,11 @@ struct MyApp {
     texture: Option<egui::TextureHandle>,
 }
 
+enum LoadedImage {
+    Dicom(DynamicImage),
+    Tiff(DynamicImage),
+}
+
 impl Default for MyApp {
     fn default() -> Self {
         Self {
@@ -47,34 +52,38 @@ impl Default for MyApp {
 
 impl MyApp {
 
-    fn determine_file_type(&mut self) -> String {
-
-        let parts: Vec<&str> = self.image_path.split(".").collect();
-        let filetype = parts.last().unwrap_or(&"");
-        println!("this is the type {:?}", filetype);
-        filetype.to_string()
+    fn determine_file_type(&self) -> &str {
+        self.image_path.rsplit(".").next().unwrap_or("")
     }
 
-    fn file_opener(&mut self, ctx: &egui::Context) -> String {
+    fn file_opener(&mut self) -> Result<LoadedImage, Box<dyn std::error::Error>> {
         let file_type_name = self.determine_file_type();
-        match file_type_name.as_str() {
-            "dcm"=> {"Opened dicom file".to_string();
-            
-            match self.load_dicom(ctx) {
-                Ok(_) => "Opened dicom file".to_string(),
-                Err(e) => format!("failed to open dicomm file: {}", e)
+        //println!("waddd, {:?}", file_type_name);
+        match file_type_name {
+            let obj = open_file(&self.image_path)?;
+            let image = self.convert_dicom_to_image(obj)?;
+            Ok(LoadedImage::Dicom(image))
+
             }
+            "tiff" => {
+                //TODO: Add support
+                let image = image::open(&self.image_path)?;
+                Ok(LoadedImage::Tiff(image))
             }
-            "tiff"=>{println!("cmontiff");
-            "Opened tiff file".to_string()
-            }
-            _ => {println!("Unsupported file type");
-            "we dont support this type yet".to_string()
+            _ => Err("Unsupported file typ".into()),
             }
         }
-    }
 
-    fn upload_dicom(&mut self, ctx: &egui::Context, image: DynamicImage) -> egui::TextureHandle{
+    fn upload_image(&mut self, ctx: &egui::Context, image: LoadedImage) {
+        let dynamic_image = match image {
+            LoadedImage::Dicom(image) => image,
+            LoadedImage::Tiff(image) => image,  
+        };
+
+        self.texture = Some(self.upload_texture(ctx, dynamic_image));
+    }    
+
+    fn upload_texture(&mut self, ctx: &egui::Context, image: DynamicImage) -> egui::TextureHandle{
 
         let size = [image.width() as usize, image.height() as usize];
         let rgba_buffer = image.to_rgba8();
@@ -85,28 +94,7 @@ impl MyApp {
             pixels,
         );
 
-        // Only call this once
         ctx.load_texture("dicom_layer", color_image, Default::default())
-
-    }
-
-    fn load_dicom(&mut self, ctx: &egui::Context) -> Result<(), Box<dyn std::error::Error>> {
-
-        //TODO: Dirty soltion, maybe create enum with r ead and access error.
-        let obj = open_file(&self.image_path)?;
-
-        let sop_class = obj.element_by_name("SOPClassUID")?.to_str()?;
-
-        //let obj = self.load_dicom().expect("Failed to load Dicom");
-        //dump_file(&obj);
-        let image_as_array = self.convert_dicom_to_image(obj).expect("couldnt decode");
-
-        // Load to gpu 
-
-        // check if this went well 
-        self.texture = Some(self.upload_dicom(ctx, image_as_array));
-
-        Ok(())
 
     }
 
@@ -115,8 +103,6 @@ impl MyApp {
         //TODO: Make a seperate one for non 2d data?
 
         // Check the type of decode ????? maybe get this from dicom meta data
-
-
         let decoded = obj.decode_pixel_data()?;
         // 0 is need because we give a stack of data? Multiple images? maaybe
         let image = decoded.to_dynamic_image(0)?;
@@ -137,12 +123,12 @@ impl eframe::App for MyApp {
                     if ui.button("Button 1").clicked() {
                         println!("loading file");
                         // TODO: Check name, maybe change it
-                        self.file_opener(ctx);
+                        match self.file_opener() {
+                            Ok(image) => self.upload_image(ctx, image),
+                            Err(e) => print!("Error: {}", e)
+                        }
                         //Check what file it is first
                         // let file = self.file_loader().expect("cant handle this format");
-                        
-
-
                     }
                     if ui.button("Button 2").clicked() {
                         println!("Button 2 clicked");
