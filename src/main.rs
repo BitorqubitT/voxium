@@ -4,6 +4,7 @@ use dicom_pixeldata::{PixelDecoder};
 use image::DynamicImage;
 use dicom_dump::dump_file;
 use dicom::dictionary_std::tags;
+use std::path::Path;
 
 fn main() -> eframe::Result {
     env_logger::init();
@@ -53,18 +54,24 @@ impl Default for MyApp {
 impl MyApp {
 
     fn determine_file_type(&self) -> &str {
-        self.image_path.rsplit(".").next().unwrap_or("")
+        if self.image_path.is_dir() {
+            return "dir"
+        } else {
+            self.image_path.rsplit(".").next().unwrap_or("")
+        }
     }
 
     fn file_opener(&mut self) -> Result<LoadedImage, Box<dyn std::error::Error>> {
         let file_type_name = self.determine_file_type();
-        //println!("waddd, {:?}", file_type_name);
         match file_type_name {
+            "dcm" => {
             let obj = open_file(&self.image_path)?;
             let image = self.convert_dicom_to_image(obj)?;
             Ok(LoadedImage::Dicom(image))
 
             }
+           //TODO: add directory 
+
             "tiff" => {
                 //TODO: Add support
                 let image = image::open(&self.image_path)?;
@@ -83,7 +90,7 @@ impl MyApp {
         self.texture = Some(self.upload_texture(ctx, dynamic_image));
     }    
 
-    fn upload_texture(&mut self, ctx: &egui::Context, image: DynamicImage) -> egui::TextureHandle{
+    fn upload_texture(&self, ctx: &egui::Context, image: DynamicImage) -> egui::TextureHandle{
 
         let size = [image.width() as usize, image.height() as usize];
         let rgba_buffer = image.to_rgba8();
@@ -99,12 +106,7 @@ impl MyApp {
     }
 
     fn convert_dicom_to_image(&self, obj: FileDicomObject<InMemDicomObject>) -> Result<DynamicImage, Box<dyn std::error::Error>> {
-        //TODO: Should eventually check from meta data? what kind of image data it contains
-        //TODO: Make a seperate one for non 2d data?
-
-        // Check the type of decode ????? maybe get this from dicom meta data
         let decoded = obj.decode_pixel_data()?;
-        // 0 is need because we give a stack of data? Multiple images? maaybe
         let image = decoded.to_dynamic_image(0)?;
         Ok(image)
     }
@@ -127,14 +129,7 @@ impl eframe::App for MyApp {
                             Ok(image) => self.upload_image(ctx, image),
                             Err(e) => print!("Error: {}", e)
                         }
-                        //Check what file it is first
-                        // let file = self.file_loader().expect("cant handle this format");
                     }
-                    if ui.button("Button 2").clicked() {
-                        println!("Button 2 clicked");
-                        self.image_size = 900.0;
-                    }
-
                 });
                 ui.menu_button("Options", |ui| {
                     if ui.button("change ferris").clicked() {
@@ -164,7 +159,6 @@ impl eframe::App for MyApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("My dicom viewer");
 
-          
             if let Some(texture) = &self.texture {
                 ui.image(texture); 
                 //ui.image(self.texture, self.texture.size_vec2());
