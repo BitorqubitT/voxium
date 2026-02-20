@@ -55,11 +55,15 @@ impl MyApp {
         filetype.to_string()
     }
 
-    fn file_opener(&mut self) -> String {
+    fn file_opener(&mut self, ctx: &egui::Context) -> String {
         let file_type_name = self.determine_file_type();
         match file_type_name.as_str() {
-            "dcm"=> { println!("cmon");
-            "Opened dicom file".to_string()
+            "dcm"=> {"Opened dicom file".to_string();
+            
+            match self.load_dicom(ctx) {
+                Ok(_) => "Opened dicom file".to_string(),
+                Err(e) => format!("failed to open dicomm file: {}", e)
+            }
             }
             "tiff"=>{println!("cmontiff");
             "Opened tiff file".to_string()
@@ -86,14 +90,24 @@ impl MyApp {
 
     }
 
-    fn load_dicom(&self) -> Result<DefaultDicomObject, Box<dyn std::error::Error>> {
+    fn load_dicom(&mut self, ctx: &egui::Context) -> Result<(), Box<dyn std::error::Error>> {
 
         //TODO: Dirty soltion, maybe create enum with r ead and access error.
         let obj = open_file(&self.image_path)?;
 
         let sop_class = obj.element_by_name("SOPClassUID")?.to_str()?;
 
-        Ok(obj)
+        //let obj = self.load_dicom().expect("Failed to load Dicom");
+        //dump_file(&obj);
+        let image_as_array = self.convert_dicom_to_image(obj).expect("couldnt decode");
+
+        // Load to gpu 
+
+        // check if this went well 
+        self.texture = Some(self.upload_dicom(ctx, image_as_array));
+
+        Ok(())
+
     }
 
     fn convert_dicom_to_image(&self, obj: FileDicomObject<InMemDicomObject>) -> Result<DynamicImage, Box<dyn std::error::Error>> {
@@ -122,15 +136,12 @@ impl eframe::App for MyApp {
                 ui.menu_button("File", |ui| {
                     if ui.button("Button 1").clicked() {
                         println!("loading file");
-                        self.file_opener();
+                        // TODO: Check name, maybe change it
+                        self.file_opener(ctx);
                         //Check what file it is first
                         // let file = self.file_loader().expect("cant handle this format");
                         
-                        let obj = self.load_dicom().expect("Failed to load Dicom");
-                        //dump_file(&obj);
-                        let image_as_array = self.convert_dicom_to_image(obj).expect("couldnt decode");
-                       
-                        self.texture = Some(self.upload_dicom(ctx, image_as_array));
+
 
                     }
                     if ui.button("Button 2").clicked() {
