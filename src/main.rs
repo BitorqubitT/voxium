@@ -50,13 +50,24 @@ impl MyApp {
     fn determine_file_type(&mut self) -> String {
 
         let parts: Vec<&str> = self.image_path.split(".").collect();
-        let filetype = parts.last().unwrap_or(&""); // get last part or empty string
+        let filetype = parts.last().unwrap_or(&"");
         println!("this is the type {:?}", filetype);
-        filetype.to_string() // return owned String
+        filetype.to_string()
     }
 
-    fn file_opener(&mut self) -> {
-
+    fn file_opener(&mut self) -> String {
+        let file_type_name = self.determine_file_type();
+        match file_type_name.as_str() {
+            "dcm"=> { println!("cmon");
+            "Opened dicom file".to_string()
+            }
+            "tiff"=>{println!("cmontiff");
+            "Opened tiff file".to_string()
+            }
+            _ => {println!("Unsupported file type");
+            "we dont support this type yet".to_string()
+            }
+        }
     }
 
     fn upload_dicom(&mut self, ctx: &egui::Context, image: DynamicImage) -> egui::TextureHandle{
@@ -111,7 +122,7 @@ impl eframe::App for MyApp {
                 ui.menu_button("File", |ui| {
                     if ui.button("Button 1").clicked() {
                         println!("loading file");
-                        self.determine_file_type();
+                        self.file_opener();
                         //Check what file it is first
                         // let file = self.file_loader().expect("cant handle this format");
                         
