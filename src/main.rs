@@ -56,21 +56,16 @@ enum ImageSource {
 }
 
 struct ImageViewer {
-    volume: Option<VolumeData>,
-    current_texture: Option<TextureHandle>,
-    current_slice: usize,
-    transform: ViewTransform,
-}
-
-pub struct ImageViewer {
-    pub source: Option<ImageData>,
-    pub transform: ViewTransform,
+    pub image: Option<ImageData>, // what we display now
+    pub volume: Option<VolumeData>, // rest
     pub current_slice: usize,
+    pub transform: ViewTransform,
 }
 
+//TODO: move this to its own file
 impl ImageViewer {
     pub fn ui(&mut self, ui: &mut egui::Ui) {
-        let Some(image) = &self.source.image else { return };
+        let Some(image) = &self.image else { return };
 
         let available = ui.available_size();
         let (rect, response) =
@@ -132,6 +127,16 @@ impl ImageViewer {
             self.transform.offset = egui::Vec2::ZERO;
         }
     }
+
+    pub fn next_slice(&mut self, ui: &egui::Ui) {
+
+    }
+
+    pub fn prev_slice(&mut self, ui: &egui::Ui) {
+
+    }
+
+
 }
 
 
@@ -143,23 +148,18 @@ struct MyApp {
     viewer: ImageViewer,
 }
 
-enum LoadedImage {
-    Dicom2d(DynamicImage),
-    DicomVolume(DynamicImage),
-    Tiff(DynamicImage),
-}
-
 impl Default for MyApp {
     fn default() -> Self {
         Self {
             height: 180,
             image_size: 30.,
             zoom_level: 100,
-            //image_path: "data/1-001.dcm".into(),
             image_path: "data/MRBRAIN.dcm".into(),
             viewer: ImageViewer {
                  image: None, 
-                 transform: ViewTransform::default(), 
+                 volume: None,
+                 transform: ViewTransform::default(),
+                 current_slice: 1,
             },
         }
     }
@@ -175,40 +175,31 @@ impl MyApp {
         }
     }
 
-    fn file_opener(&mut self) -> Result<LoadedImage, Box<dyn std::error::Error>> {
-        let file_type_name = self.determine_file_type();
-        println!("{:?}", file_type_name);
-        match file_type_name {
+    fn file_opener(&mut self, ctx: &egui::Context) -> Result<(), Box<dyn std::error::Error>> {
+        match self.determine_file_type(){
             "dcm" => {
             let obj = open_file(&self.image_path)?;
             let image = self.convert_dicom_to_image(obj)?;
-            Ok(LoadedImage::Dicom2d(image))
-
+            self.upload_image(ctx, image);
+            
             }
-           //TODO: add directory 
-
             "tiff" => {
                 //TODO: Add support
                 let image = image::open(&self.image_path)?;
-                Ok(LoadedImage::Tiff(image))
+                self.upload_image(ctx, image);
             }
-
             "dir" => {
-
+                self.load_directory(ctx, &self.image_path)?;
             }
-
             _ => Err("Unsupported file typ".into()),
             }
+
+            Ok(())
         }
 
-    fn upload_image(&mut self, ctx: &egui::Context, image: LoadedImage) {
-        let dynamic_image = match image {
-            LoadedImage::Dicom2d(image) => image,
-            LoadedImage::DicomVolume(image) => image,  
-            LoadedImage::Tiff(image) => image,  
-        };
+    fn upload_image(&mut self, ctx: &egui::Context, image: DynamicImage) {
 
-        let texture = self.upload_texture(ctx, dynamic_image);
+        let texture = self.upload_texture(ctx, image);
         let size = texture.size_vec2();
 
         self.viewer.image = Some(ImageData {
@@ -239,6 +230,16 @@ impl MyApp {
         Ok(image)
     }
 
+    fn load_directory(&self,){
+            // load slice
+            // create volyume data
+            // upload one slice to gpu
+
+            // keep in mind that I should order the slices
+
+    }
+
+
 }
 
 impl eframe::App for MyApp {
@@ -249,24 +250,20 @@ impl eframe::App for MyApp {
 
             egui::MenuBar::new().ui(ui, |ui| {
                 ui.menu_button("File", |ui| {
-                    if ui.button("Button 1").clicked() {
-                        println!("loading file");
-                        // TODO: Check name, maybe change it
-                        match self.file_opener() {
-                            Ok(image) => self.upload_image(ctx, image),
-                            Err(e) => print!("Error: {}", e)
+                    if ui.button("Open a file").clicked() {
+                        if let Err(e) = self.file_opener(ctx) {
+                            eprintln!("Error loading file: {}", e);
                         }
+                        ui.close();
                     }
                 });
                 ui.menu_button("File", |ui| {
-                    if ui.button("Button 2").clicked() {
+                    if ui.button("Button 2 open directory").clicked() {
                         self.image_path = r"D:\dataset\manifest-1771003632643\PSMA-PET-CT-Lesions\PSMA_0ef9e2afd72f7483\08-27-2002-NA-PETCT whole-body PSMA-67604\2.000000-CT-96689".into();
-                        println!("Get directory file");
-                        // TODO: Check name, maybe change it
-                        match self.file_opener() {
-                            Ok(image) => self.upload_image(ctx, image),
-                            Err(e) => print!("Error: {}", e)
+                        if let Err(e) = self.file_opener(ctx) {
+                            eprintln!("Error loading file: {}", e);
                         }
+                        ui.close(); 
                     }
                 });
                 ui.menu_button("Options", |ui| {
