@@ -30,14 +30,14 @@ pub struct ImageData {
 }
 
 pub struct ViewTransform {
-    pub zoom: i32,
+    pub zoom: f32,
     pub offset: egui::Vec2,
 }
 
 impl Default for ViewTransform {
     fn default() -> Self {
         Self {
-            zoom: 1,
+            zoom: 1.0,
             offset: egui::Vec2::ZERO,
         }
 
@@ -58,8 +58,20 @@ impl ImageViewer {
             ui.allocate_exact_size(available, egui::Sense::drag());
 
         // ---- DRAW ----
-        //let image_size = image.size * self.transform.zoom;
-        let image_size = image.size;
+        // TODO: Create
+        let scroll = ui.input(|i| i.raw_scroll_delta.y);
+
+        if scroll != 0.0 {
+
+            self.transform.zoom += scroll;
+
+
+
+        }
+
+
+
+        let image_size = image.size * self.transform.zoom;
 
         let image_rect = egui::Rect::from_min_size(
             rect.center() - image_size * 0.5 + self.transform.offset,
