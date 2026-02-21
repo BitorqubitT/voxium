@@ -24,17 +24,72 @@ fn main() -> eframe::Result {
     )
 }
 
+pub struct ImageData {
+    pub texture: egui::TextureHandle,
+    pub size: egui::Vec2,
+}
+
+pub struct ViewTransform {
+    pub zoom: i32,
+    pub offset: egui::Vec2,
+}
+
+impl Default for ViewTransform {
+    fn default() -> Self {
+        Self {
+            zoom: 1,
+            offset: egui::Vec2::ZERO,
+        }
+
+    }
+}
+
+pub struct ImageViewer {
+    pub image: Option<ImageData>,
+    pub transform: ViewTransform,
+}
+
+impl ImageViewer {
+    pub fn ui(&mut self, ui: &mut egui::Ui) {
+        let Some(image) = &self.image else { return };
+
+        let available = ui.available_size();
+        let (rect, response) =
+            ui.allocate_exact_size(available, egui::Sense::drag());
+
+        // ---- DRAW ----
+        //let image_size = image.size * self.transform.zoom;
+        let image_size = image.size;
+
+        let image_rect = egui::Rect::from_min_size(
+            rect.center() - image_size * 0.5 + self.transform.offset,
+            image_size,
+        );
+
+        ui.painter().image(
+            image.texture.id(),
+            image_rect,
+            egui::Rect::from_min_max(
+                egui::Pos2::new(0.0, 0.0),
+                egui::Pos2::new(1.0, 1.0),
+            ),
+            egui::Color32::WHITE,
+        );
+    }
+}
+
+
 struct MyApp {
     height: u32,
     image_size: f32,
     zoom_level: i32,
     image_path: PathBuf,
-    dicom_image: Option<image::DynamicImage>,
-    texture: Option<egui::TextureHandle>,
+    viewer: ImageViewer,
 }
 
 enum LoadedImage {
-    Dicom(DynamicImage),
+    Dicom2d(DynamicImage),
+    DicomVolume(DynamicImage),
     Tiff(DynamicImage),
 }
 
@@ -44,10 +99,11 @@ impl Default for MyApp {
             height: 180,
             image_size: 30.,
             zoom_level: 100,
-            //image_path: "data/1-001.dcm".to_owned(),
             image_path: "data/1-001.dcm".into(),
-            dicom_image: None,
-            texture: None,
+            viewer: ImageViewer {
+                 image: None, 
+                 transform: ViewTransform::default(), 
+            },
         }
     }
 }
@@ -68,7 +124,7 @@ impl MyApp {
             "dcm" => {
             let obj = open_file(&self.image_path)?;
             let image = self.convert_dicom_to_image(obj)?;
-            Ok(LoadedImage::Dicom(image))
+            Ok(LoadedImage::Dicom2d(image))
 
             }
            //TODO: add directory 
@@ -88,11 +144,19 @@ impl MyApp {
 
     fn upload_image(&mut self, ctx: &egui::Context, image: LoadedImage) {
         let dynamic_image = match image {
-            LoadedImage::Dicom(image) => image,
+            LoadedImage::Dicom2d(image) => image,
+            LoadedImage::DicomVolume(image) => image,  
             LoadedImage::Tiff(image) => image,  
         };
 
-        self.texture = Some(self.upload_texture(ctx, dynamic_image));
+        let texture = self.upload_texture(ctx, dynamic_image);
+        let size = texture.size_vec2();
+
+        self.viewer.image = Some(ImageData {
+            texture,
+            size,
+        });
+
     }    
 
     fn upload_texture(&self, ctx: &egui::Context, image: DynamicImage) -> egui::TextureHandle{
@@ -162,12 +226,8 @@ impl eframe::App for MyApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("My dicom viewer");
 
-            if let Some(texture) = &self.texture {
-                ui.image(texture); 
-                //ui.image(self.texture, self.texture.size_vec2());
-            } else {
-                ui.label("Waiting for DICOM upload...");
-            }
+            self.viewer.ui(ui);
+
             
         });
     }
