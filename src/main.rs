@@ -4,7 +4,7 @@ use dicom_pixeldata::{PixelDecoder};
 use image::DynamicImage;
 use dicom_dump::dump_file;
 use dicom::dictionary_std::tags;
-use std::path::Path;
+use std::path::PathBuf;
 
 fn main() -> eframe::Result {
     env_logger::init();
@@ -28,7 +28,7 @@ struct MyApp {
     height: u32,
     image_size: f32,
     zoom_level: i32,
-    image_path: String,
+    image_path: PathBuf,
     dicom_image: Option<image::DynamicImage>,
     texture: Option<egui::TextureHandle>,
 }
@@ -44,7 +44,8 @@ impl Default for MyApp {
             height: 180,
             image_size: 30.,
             zoom_level: 100,
-            image_path: "data/1-001.dcm".to_owned(),
+            //image_path: "data/1-001.dcm".to_owned(),
+            image_path: "data/1-001.dcm".into(),
             dicom_image: None,
             texture: None,
         }
@@ -55,9 +56,9 @@ impl MyApp {
 
     fn determine_file_type(&self) -> &str {
         if self.image_path.is_dir() {
-            return "dir"
+            "dir"
         } else {
-            self.image_path.rsplit(".").next().unwrap_or("")
+            self.image_path.extension().and_then(|ext| ext.to_str()).unwrap_or("")
         }
     }
 
@@ -77,6 +78,10 @@ impl MyApp {
                 let image = image::open(&self.image_path)?;
                 Ok(LoadedImage::Tiff(image))
             }
+
+            //"dir" => {
+             //   println!("should check multiple files");
+            //}
             _ => Err("Unsupported file typ".into()),
             }
         }
@@ -113,7 +118,6 @@ impl MyApp {
 
 }
 
-
 impl eframe::App for MyApp {
 
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -134,7 +138,6 @@ impl eframe::App for MyApp {
                 ui.menu_button("Options", |ui| {
                     if ui.button("change ferris").clicked() {
                         println!("Options 1 clicked");
-                        self.image_path = "file://assets/ferris2.png".to_owned();
                     }
                     ui.menu_button("More options", |ui|{
                         if ui.button("More Options 1").clicked() {
