@@ -44,32 +44,60 @@ impl Default for ViewTransform {
     }
 }
 
+pub struct VolumeData {
+    pub slices: Vec<DynamicImage>,
+    pub width: usize,
+    pub height: usize,
+}
+
+enum ImageSource {
+    Single(ImageData),
+    Volume(VolumeData),
+}
+
+struct ImageViewer {
+    volume: Option<VolumeData>,
+    current_texture: Option<TextureHandle>,
+    current_slice: usize,
+    transform: ViewTransform,
+}
+
 pub struct ImageViewer {
-    pub image: Option<ImageData>,
+    pub source: Option<ImageData>,
     pub transform: ViewTransform,
+    pub current_slice: usize,
 }
 
 impl ImageViewer {
     pub fn ui(&mut self, ui: &mut egui::Ui) {
-        let Some(image) = &self.image else { return };
+        let Some(image) = &self.source.image else { return };
 
         let available = ui.available_size();
         let (rect, response) =
             ui.allocate_exact_size(available, egui::Sense::drag());
 
-        // ---- DRAW ----
-        // TODO: Create
+        if response.dragged() {
+            self.transform.offset += response.drag_delta();
+        }
+
+        // Zooming
         let scroll = ui.input(|i| i.raw_scroll_delta.y);
 
         if scroll != 0.0 {
+            if let Some(mouse_pos) = ui.input(|i| i.pointer.hover_pos()) {
+                println!("{:?}", mouse_pos);
+                let old_zoom = self.transform.zoom;
 
-            self.transform.zoom += scroll;
+                let zoom_factor = (1.0 + scroll * 0.001).clamp(0.1, 10.0);
+                self.transform.zoom *= zoom_factor;
 
+                let delta_zoom = self.transform.zoom / old_zoom;
 
-
+        // TODO: Doesnt feel intuitive yet, maybe change offset calc
+                self.transform.offset = (self.transform.offset - mouse_pos.to_vec2()) * delta_zoom
+                        + mouse_pos.to_vec2();
+            }
         }
-
-
 
         let image_size = image.size * self.transform.zoom;
 
@@ -77,6 +105,8 @@ impl ImageViewer {
             rect.center() - image_size * 0.5 + self.transform.offset,
             image_size,
         );
+
+        println!("{:?}", image_rect);
 
         ui.painter().image(
             image.texture.id(),
@@ -87,6 +117,20 @@ impl ImageViewer {
             ),
             egui::Color32::WHITE,
         );
+    }
+
+    pub fn reset(&mut self) {
+        self.transform = ViewTransform::default();
+    }
+
+    pub fn zoom_to_fit(&mut self, ui: &egui::Ui) {
+        if let Some(image) = &self.image {
+            let available = ui.available_size();
+            let scale_x = available.x / image.size.x;
+            let scale_y = available.y / image.size.y;
+            self.transform.zoom = scale_x.min(scale_y);
+            self.transform.offset = egui::Vec2::ZERO;
+        }
     }
 }
 
@@ -111,7 +155,8 @@ impl Default for MyApp {
             height: 180,
             image_size: 30.,
             zoom_level: 100,
-            image_path: "data/1-001.dcm".into(),
+            //image_path: "data/1-001.dcm".into(),
+            image_path: "data/MRBRAIN.dcm".into(),
             viewer: ImageViewer {
                  image: None, 
                  transform: ViewTransform::default(), 
@@ -132,6 +177,7 @@ impl MyApp {
 
     fn file_opener(&mut self) -> Result<LoadedImage, Box<dyn std::error::Error>> {
         let file_type_name = self.determine_file_type();
+        println!("{:?}", file_type_name);
         match file_type_name {
             "dcm" => {
             let obj = open_file(&self.image_path)?;
@@ -147,9 +193,10 @@ impl MyApp {
                 Ok(LoadedImage::Tiff(image))
             }
 
-            //"dir" => {
-             //   println!("should check multiple files");
-            //}
+            "dir" => {
+
+            }
+
             _ => Err("Unsupported file typ".into()),
             }
         }
@@ -204,6 +251,17 @@ impl eframe::App for MyApp {
                 ui.menu_button("File", |ui| {
                     if ui.button("Button 1").clicked() {
                         println!("loading file");
+                        // TODO: Check name, maybe change it
+                        match self.file_opener() {
+                            Ok(image) => self.upload_image(ctx, image),
+                            Err(e) => print!("Error: {}", e)
+                        }
+                    }
+                });
+                ui.menu_button("File", |ui| {
+                    if ui.button("Button 2").clicked() {
+                        self.image_path = r"D:\dataset\manifest-1771003632643\PSMA-PET-CT-Lesions\PSMA_0ef9e2afd72f7483\08-27-2002-NA-PETCT whole-body PSMA-67604\2.000000-CT-96689".into();
+                        println!("Get directory file");
                         // TODO: Check name, maybe change it
                         match self.file_opener() {
                             Ok(image) => self.upload_image(ctx, image),
