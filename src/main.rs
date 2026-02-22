@@ -51,22 +51,30 @@ pub struct VolumeData {
 }
 
 enum ImageSource {
-    Single(ImageData),
-    Volume(VolumeData),
+    Single {
+        texture: ImageData,
+    },
+    Volume {
+        volume: VolumeData,
+        texture: ImageData,
+        current_slice: usize,
+    },
 }
 
 struct ImageViewer {
-    pub image: Option<ImageData>, // what we display now
-    pub volume: Option<VolumeData>, // rest
-    pub current_slice: usize,
-    pub transform: ViewTransform,
+    source: Option<ImageSource>,
+    transform: ViewTransform,
 }
 
 //TODO: move this to its own file
 impl ImageViewer {
     pub fn ui(&mut self, ui: &mut egui::Ui) {
-        let Some(image) = &self.image else { return };
-
+        let texture = match &self.source {
+            Some(ImageSource::Single { texture }) => texture,
+            Some(ImageSource::Volume { texture, .. }) => texture,
+            None => return,
+        };
+        
         let available = ui.available_size();
         let (rect, response) =
             ui.allocate_exact_size(available, egui::Sense::drag());
@@ -94,7 +102,7 @@ impl ImageViewer {
             }
         }
 
-        let image_size = image.size * self.transform.zoom;
+        let image_size = texture.size * self.transform.zoom;
 
         let image_rect = egui::Rect::from_min_size(
             rect.center() - image_size * 0.5 + self.transform.offset,
@@ -104,7 +112,7 @@ impl ImageViewer {
         println!("{:?}", image_rect);
 
         ui.painter().image(
-            image.texture.id(),
+            texture.texture.id(),
             image_rect,
             egui::Rect::from_min_max(
                 egui::Pos2::new(0.0, 0.0),
@@ -119,13 +127,17 @@ impl ImageViewer {
     }
 
     pub fn zoom_to_fit(&mut self, ui: &egui::Ui) {
-        if let Some(image) = &self.image {
-            let available = ui.available_size();
-            let scale_x = available.x / image.size.x;
-            let scale_y = available.y / image.size.y;
-            self.transform.zoom = scale_x.min(scale_y);
-            self.transform.offset = egui::Vec2::ZERO;
-        }
+        let texture = match &self.source {
+            Some(ImageSource::Single { texture }) => texture,
+            Some(ImageSource::Volume { texture, .. }) => texture,
+            None => return,
+        };
+
+        let available = ui.available_size();
+        let scale_x = available.x / texture.size.x;
+        let scale_y = available.y / texture.size.y;
+        self.transform.zoom = scale_x.min(scale_y);
+        self.transform.offset = egui::Vec2::ZERO;
     }
 
     pub fn next_slice(&mut self, ui: &egui::Ui) {
@@ -138,7 +150,6 @@ impl ImageViewer {
 
 
 }
-
 
 struct MyApp {
     height: u32,
@@ -156,10 +167,8 @@ impl Default for MyApp {
             zoom_level: 100,
             image_path: "data/MRBRAIN.dcm".into(),
             viewer: ImageViewer {
-                 image: None, 
-                 volume: None,
-                 transform: ViewTransform::default(),
-                 current_slice: 1,
+                source: None,
+                transform:  ViewTransform::default(),
             },
         }
     }
@@ -202,11 +211,12 @@ impl MyApp {
         let texture = self.upload_texture(ctx, image);
         let size = texture.size_vec2();
 
-        self.viewer.image = Some(ImageData {
+        self.viewer.source = Some(ImageSource::Single {
+        texture: ImageData {
             texture,
             size,
+            },
         });
-
     }    
 
     fn upload_texture(&self, ctx: &egui::Context, image: DynamicImage) -> egui::TextureHandle{
@@ -231,11 +241,31 @@ impl MyApp {
     }
 
     fn load_directory(&self,){
-            // load slice
-            // create volyume data
-            // upload one slice to gpu
+        // load slice
+        // create volyume data
+        // upload one slice to gpu
 
-            // keep in mind that I should order the slices
+        // keep in mind that I should order the slices
+
+        let slices = Vec();
+        let width = 100,
+        let height = 100,
+
+        self.viewer.source = Some(ImageSource::Volume {
+        volume: Vec {
+            slices,
+            width,
+            height,
+        },
+        texture: ImageData {
+            texture,
+            size,
+            },
+        slice:
+
+
+
+        });
 
     }
 
