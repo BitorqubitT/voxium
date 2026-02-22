@@ -4,7 +4,7 @@ use dicom_pixeldata::{PixelDecoder};
 use image::DynamicImage;
 use dicom_dump::dump_file;
 use dicom::dictionary_std::tags;
-use std::path::PathBuf;
+use std::{fs, path::PathBuf};
 
 fn main() -> eframe::Result {
     env_logger::init();
@@ -148,6 +148,11 @@ impl ImageViewer {
 
     }
 
+    // Put all gpu logic in the viewer, cpu in myapp
+    pub fn load_volume() {
+
+    }
+
 
 }
 
@@ -155,7 +160,7 @@ struct MyApp {
     height: u32,
     image_size: f32,
     zoom_level: i32,
-    image_path: PathBuf,
+    path: PathBuf,
     viewer: ImageViewer,
 }
 
@@ -165,7 +170,7 @@ impl Default for MyApp {
             height: 180,
             image_size: 30.,
             zoom_level: 100,
-            image_path: "data/MRBRAIN.dcm".into(),
+            path: "data/MRBRAIN.dcm".into(),
             viewer: ImageViewer {
                 source: None,
                 transform:  ViewTransform::default(),
@@ -177,28 +182,28 @@ impl Default for MyApp {
 impl MyApp {
 
     fn determine_file_type(&self) -> &str {
-        if self.image_path.is_dir() {
+        if self.path.is_dir() {
             "dir"
         } else {
-            self.image_path.extension().and_then(|ext| ext.to_str()).unwrap_or("")
+            self.path.extension().and_then(|ext| ext.to_str()).unwrap_or("")
         }
     }
 
     fn file_opener(&mut self, ctx: &egui::Context) -> Result<(), Box<dyn std::error::Error>> {
         match self.determine_file_type(){
             "dcm" => {
-            let obj = open_file(&self.image_path)?;
+            let obj = open_file(&self.path)?;
             let image = self.convert_dicom_to_image(obj)?;
             self.upload_image(ctx, image);
             
             }
             "tiff" => {
                 //TODO: Add support
-                let image = image::open(&self.image_path)?;
+                let image = image::open(&self.path)?;
                 self.upload_image(ctx, image);
             }
             "dir" => {
-                self.load_directory(ctx, &self.image_path)?;
+                self.load_directory(ctx, &self.path)?;
             }
             _ => Err("Unsupported file typ".into()),
             }
@@ -240,32 +245,33 @@ impl MyApp {
         Ok(image)
     }
 
-    fn load_directory(&self,){
-        // load slice
-        // create volyume data
-        // upload one slice to gpu
+    fn load_directory(&mut self, ctx: &egui::Context){
+        // load slice and sort slices
+        // read the meta data to sort them then put them in vec
+        let files = fs::read_dir(self.path).unwrap();
+        for file_name in files {
+            println!("{}", file_name.as_ref().unwrap().path().display());
+            let file = File::open(file_name.unwrap().path()).unwrap();
 
-        // keep in mind that I should order the slices
+            //read meta data to start ordering
+            // Build in function in dicom?
+
+        }
+
+
 
         let slices = Vec();
-        let width = 100,
-        let height = 100,
+        let width = 100;
+        let height = 100;
 
-        self.viewer.source = Some(ImageSource::Volume {
-        volume: Vec {
+        let volume = VolumeData{
             slices,
             width,
             height,
-        },
-        texture: ImageData {
-            texture,
-            size,
-            },
-        slice:
+        };
 
+        self.viewer.load_volume(ctx, volume);
 
-
-        });
 
     }
 
@@ -289,7 +295,7 @@ impl eframe::App for MyApp {
                 });
                 ui.menu_button("File", |ui| {
                     if ui.button("Button 2 open directory").clicked() {
-                        self.image_path = r"D:\dataset\manifest-1771003632643\PSMA-PET-CT-Lesions\PSMA_0ef9e2afd72f7483\08-27-2002-NA-PETCT whole-body PSMA-67604\2.000000-CT-96689".into();
+                        self.path = r"D:\dataset\manifest-1771003632643\PSMA-PET-CT-Lesions\PSMA_0ef9e2afd72f7483\08-27-2002-NA-PETCT whole-body PSMA-67604\2.000000-CT-96689".into();
                         if let Err(e) = self.file_opener(ctx) {
                             eprintln!("Error loading file: {}", e);
                         }
