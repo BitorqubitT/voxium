@@ -88,7 +88,6 @@ impl ImageViewer {
 
         if scroll != 0.0 {
             if let Some(mouse_pos) = ui.input(|i| i.pointer.hover_pos()) {
-                println!("{:?}", mouse_pos);
                 let old_zoom = self.transform.zoom;
 
                 let zoom_factor = (1.0 + scroll * 0.001).clamp(0.1, 10.0);
@@ -108,8 +107,6 @@ impl ImageViewer {
             rect.center() - image_size * 0.5 + self.transform.offset,
             image_size,
         );
-
-        println!("{:?}", image_rect);
 
         ui.painter().image(
             texture.texture.id(),
@@ -203,13 +200,14 @@ impl MyApp {
                 self.upload_image(ctx, image);
             }
             "dir" => {
-                self.load_directory(ctx, &self.path)?;
+                self.load_directory(ctx)?;
             }
-            _ => Err("Unsupported file typ".into()),
+            _ => { 
+                return Err("Unsupported file typ".into());
             }
-
-            Ok(())
         }
+        Ok(())
+    }
 
     fn upload_image(&mut self, ctx: &egui::Context, image: DynamicImage) {
 
@@ -245,13 +243,17 @@ impl MyApp {
         Ok(image)
     }
 
-    fn load_directory(&mut self, ctx: &egui::Context){
+    fn load_directory(&mut self, ctx: &egui::Context) -> Result<(), Box<dyn std::error::Error>> {
         // load slice and sort slices
         // read the meta data to sort them then put them in vec
-        let files = fs::read_dir(self.path).unwrap();
-        for file_name in files {
-            println!("{}", file_name.as_ref().unwrap().path().display());
-            let file = File::open(file_name.unwrap().path()).unwrap();
+        for file_name in fs::read_dir(&self.path)?.flatten(){
+            let obj = open_file(file_name.path())?;
+            
+            let instance_number = obj.element(tags::IMAGE_POSITION)?.to_str()?;
+            let patient_name = obj.element(tags::PATIENT_NAME)?.to_str()?;
+            println!("{patient_name}, {instance_number}");
+
+
 
             //read meta data to start ordering
             // Build in function in dicom?
@@ -260,18 +262,19 @@ impl MyApp {
 
 
 
-        let slices = Vec();
+        //let slices = Vec();
         let width = 100;
         let height = 100;
+        /** 
+                let volume = VolumeData{
+                    slices,
+                    width,
+                    height,
+                };
+        */
+        //self.viewer.load_volume(ctx, volume);
 
-        let volume = VolumeData{
-            slices,
-            width,
-            height,
-        };
-
-        self.viewer.load_volume(ctx, volume);
-
+        Ok(())
 
     }
 
