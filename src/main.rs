@@ -66,9 +66,6 @@ struct ImageViewer {
     transform: ViewTransform,
 }
 
-
-
-
 //TODO: move this to its own file
 impl ImageViewer {
     pub fn ui(&mut self, ui: &mut egui::Ui) {
@@ -149,7 +146,15 @@ impl ImageViewer {
     }
 
     // Put all gpu logic in the viewer, cpu in myapp
-    pub fn load_volume() {
+    pub fn load_volume(&mut self, ui: &egui::Ui, volume:VolumeData) {
+
+
+        //TODO: check how to get the ImageData type
+        self.source = Some(ImageSource::Volume {
+            volume,
+            texture: volume.slices[0],
+            current_slice: 0,
+        });
 
     }
 
@@ -249,51 +254,44 @@ impl MyApp {
     fn load_directory(&mut self, ctx: &egui::Context) -> Result<(), Box<dyn std::error::Error>> {
         // load slice and sort slices
         // read the meta data to sort them then put them in vec
-
-
         
         let mut id_and_images = Vec::new();
 
         //TODO: Check if tags are present and use the present one to order
 
+        let mut counter = 0;
 
         for file_name in fs::read_dir(&self.path)?.flatten(){
             let obj = open_file(file_name.path())?;
 
-            let image_position = obj.element(tags::IMAGE_POSITION_PATIENT)?.to_str()?;
-            let instance_number = obj.element(tags::INSTANCE_NUMBER)?.to_str()?;
-            let patient_name = obj.element(tags::PATIENT_NAME)?.to_str()?;
+            let image_position = obj.element(tags::IMAGE_POSITION_PATIENT)?.to_str()?.to_string();
+            let instance_number = obj.element(tags::INSTANCE_NUMBER)?.to_str()?.to_string();
+            let patient_name = obj.element(tags::PATIENT_NAME)?.to_str()?.to_string();
             println!("{patient_name}, {instance_number}, {image_position}");
 
             let image = self.convert_dicom_to_image(obj)?;
 
+            let counter = counter + 1;
             id_and_images.push((instance_number, image))
 
-
-                //read meta data to start ordering
-                // Build in function in dicom?
         }
 
-        //id_and_images.sort_by_key(|tuple| tuple.0);
-        //This doesnt need a copy
         id_and_images.sort_by(|a, b| a.0.cmp(&b.0));
-        println!("{:?}", id_and_images[0]);
+        println!("{:?}", id_and_images[0].0);
 
 
+        let images_vector: Vec<DynamicImage> = id_and_images.into_iter().map(|(_, b)| b).collect();
 
+        let width = images_vector[0].width();
+        let height = images_vector[0].height();
 
-
-        //let slices = Vec();
-        let width = 100;
-        let height = 100;
-        /** 
-                let volume = VolumeData{
-                    slices,
-                    width,
-                    height,
-                };
-        */
-        //self.viewer.load_volume(ctx, volume);
+        let volume = VolumeData{
+            slices: images_vector,
+            width: width as usize,
+            height: height as usize,
+        };
+        
+        self.viewer.load_volume(ctx, volume);
 
         Ok(())
 
