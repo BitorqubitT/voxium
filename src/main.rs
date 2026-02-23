@@ -66,6 +66,9 @@ struct ImageViewer {
     transform: ViewTransform,
 }
 
+
+
+
 //TODO: move this to its own file
 impl ImageViewer {
     pub fn ui(&mut self, ui: &mut egui::Ui) {
@@ -246,19 +249,37 @@ impl MyApp {
     fn load_directory(&mut self, ctx: &egui::Context) -> Result<(), Box<dyn std::error::Error>> {
         // load slice and sort slices
         // read the meta data to sort them then put them in vec
+
+
+        
+        let mut id_and_images = Vec::new();
+
+        //TODO: Check if tags are present and use the present one to order
+
+
         for file_name in fs::read_dir(&self.path)?.flatten(){
             let obj = open_file(file_name.path())?;
-            
-            let instance_number = obj.element(tags::IMAGE_POSITION)?.to_str()?;
+
+            let image_position = obj.element(tags::IMAGE_POSITION_PATIENT)?.to_str()?;
+            let instance_number = obj.element(tags::INSTANCE_NUMBER)?.to_str()?;
             let patient_name = obj.element(tags::PATIENT_NAME)?.to_str()?;
-            println!("{patient_name}, {instance_number}");
+            println!("{patient_name}, {instance_number}, {image_position}");
+
+            let image = self.convert_dicom_to_image(obj)?;
+
+            id_and_images.push((instance_number, image))
 
 
-
-            //read meta data to start ordering
-            // Build in function in dicom?
-
+                //read meta data to start ordering
+                // Build in function in dicom?
         }
+
+        //id_and_images.sort_by_key(|tuple| tuple.0);
+        //This doesnt need a copy
+        id_and_images.sort_by(|a, b| a.0.cmp(&b.0));
+        println!("{:?}", id_and_images[0]);
+
+
 
 
 
