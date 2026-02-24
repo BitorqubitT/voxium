@@ -182,6 +182,20 @@ impl ImageViewer {
 
     }
 
+    fn upload_image(&mut self, ctx: &egui::Context, image: DynamicImage) {
+
+        let texture = self.upload_texture(ctx, image);
+        let size = texture.size_vec2();
+
+        self.source = Some(ImageSource::Single {
+        texture: ImageData {
+            texture,
+            size,
+            },
+        });
+    }    
+
+
 
 }
 
@@ -223,15 +237,16 @@ impl MyApp {
             "dcm" => {
             let obj = open_file(&self.path)?;
             let image = self.convert_dicom_to_image(obj)?;
-            self.upload_image(ctx, image);
+            self.viewer.upload_image(ctx, image);
             
             }
             "tiff" => {
                 //TODO: Add support
                 let image = image::open(&self.path)?;
-                self.upload_image(ctx, image);
+                self.viewer.upload_image(ctx, image);
             }
             "dir" => {
+                //TODO: Maybe split this partly
                 self.load_directory(ctx)?;
             }
             _ => { 
@@ -240,20 +255,6 @@ impl MyApp {
         }
         Ok(())
     }
-
-    // TODO: move this aswell, to viewer?
-    fn upload_image(&mut self, ctx: &egui::Context, image: DynamicImage) {
-
-        let texture = self.viewer.upload_texture(ctx, image);
-        let size = texture.size_vec2();
-
-        self.viewer.source = Some(ImageSource::Single {
-        texture: ImageData {
-            texture,
-            size,
-            },
-        });
-    }    
 
     fn convert_dicom_to_image(&self, obj: FileDicomObject<InMemDicomObject>) -> Result<DynamicImage, Box<dyn std::error::Error>> {
         let decoded = obj.decode_pixel_data()?;
