@@ -145,15 +145,39 @@ impl ImageViewer {
 
     }
 
-    // Put all gpu logic in the viewer, cpu in myapp
-    pub fn load_volume(&mut self, ui: &egui::Ui, volume:VolumeData) {
+    pub fn upload_texture(&self, ctx: &egui::Context, image: DynamicImage) -> egui::TextureHandle{
 
+        let size = [image.width() as usize, image.height() as usize];
+        let rgba_buffer = image.to_rgba8();
+        let pixels = rgba_buffer.as_raw();
 
-        //TODO: check how to get the ImageData type
+        let color_image = egui::ColorImage::from_rgba_unmultiplied(
+            size,
+            pixels,
+        );
+
+        ctx.load_texture("dicom_layer", color_image, Default::default())
+
+    }
+
+    // Put all gpu logic in the viewer
+    pub fn load_volume(&mut self, ctx: &egui::Context, volume:VolumeData) {
+
+        // Any other way to do this? 
+        // We only clone one image, so not too bad.
+        let current_slice = 0;
+        let new_slice = volume.slices[current_slice].clone();
+
+        let texture = self.upload_texture(ctx, new_slice);
+        let size = texture.size_vec2();
+
         self.source = Some(ImageSource::Volume {
             volume,
-            texture: volume.slices[0],
-            current_slice: 0,
+            texture: ImageData {
+                texture,
+                size,
+            },
+            current_slice,
         });
 
     }
@@ -217,9 +241,10 @@ impl MyApp {
         Ok(())
     }
 
+    // TODO: move this aswell, to viewer?
     fn upload_image(&mut self, ctx: &egui::Context, image: DynamicImage) {
 
-        let texture = self.upload_texture(ctx, image);
+        let texture = self.viewer.upload_texture(ctx, image);
         let size = texture.size_vec2();
 
         self.viewer.source = Some(ImageSource::Single {
@@ -229,21 +254,6 @@ impl MyApp {
             },
         });
     }    
-
-    fn upload_texture(&self, ctx: &egui::Context, image: DynamicImage) -> egui::TextureHandle{
-
-        let size = [image.width() as usize, image.height() as usize];
-        let rgba_buffer = image.to_rgba8();
-        let pixels = rgba_buffer.as_raw();
-
-        let color_image = egui::ColorImage::from_rgba_unmultiplied(
-            size,
-            pixels,
-        );
-
-        ctx.load_texture("dicom_layer", color_image, Default::default())
-
-    }
 
     fn convert_dicom_to_image(&self, obj: FileDicomObject<InMemDicomObject>) -> Result<DynamicImage, Box<dyn std::error::Error>> {
         let decoded = obj.decode_pixel_data()?;
