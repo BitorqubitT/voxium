@@ -4,7 +4,7 @@ use dicom_pixeldata::{PixelDecoder};
 use image::DynamicImage;
 use dicom_dump::dump_file;
 use dicom::dictionary_std::tags;
-use std::{fs, path::PathBuf};
+use std::{fs, path::PathBuf, thread::current};
 
 fn main() -> eframe::Result {
     env_logger::init();
@@ -139,6 +139,24 @@ impl ImageViewer {
 
     pub fn next_slice(&mut self, ui: &egui::Ui) {
 
+        if let Some(ImageSource::Volume { volume, texture, current_slice }) = &mut self.source {
+            
+            let next_slice = (*current_slice + 1) % volume.slices.len();
+
+            *current_slice = next_slice;
+
+            let new_image = volume.slices[next_slice].clone();
+            let new_image = &self.upload_texture(ui.ctx(), new_image);
+            let size = new_image.size_vec2();
+            
+            *texture = ImageData {
+                texture: new_image.clone(),
+                size,
+            };
+
+        }
+    
+    
     }
 
     pub fn prev_slice(&mut self, ui: &egui::Ui) {
@@ -290,7 +308,6 @@ impl MyApp {
         id_and_images.sort_by(|a, b| a.0.cmp(&b.0));
         println!("{:?}", id_and_images[0].0);
 
-
         let images_vector: Vec<DynamicImage> = id_and_images.into_iter().map(|(_, b)| b).collect();
 
         let width = images_vector[0].width();
@@ -362,9 +379,13 @@ impl eframe::App for MyApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("My dicom viewer");
 
+            if ui.input(|i|i.key_pressed(egui::Key::N)) {
+                self.viewer.next_slice(ui);
+            };
+
             self.viewer.ui(ui);
 
-            
         });
+
     }
 }
