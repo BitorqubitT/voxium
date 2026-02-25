@@ -146,7 +146,7 @@ impl ImageViewer {
             *current_slice = next_slice;
 
             let new_image = volume.slices[next_slice].clone();
-            let new_image = &self.upload_texture(ui.ctx(), new_image);
+            let new_image = ImageViewer::upload_texture(ui.ctx(), new_image);
             let size = new_image.size_vec2();
             
             *texture = ImageData {
@@ -156,14 +156,14 @@ impl ImageViewer {
 
         }
     
-    
     }
 
     pub fn prev_slice(&mut self, ui: &egui::Ui) {
 
     }
 
-    pub fn upload_texture(&self, ctx: &egui::Context, image: DynamicImage) -> egui::TextureHandle{
+    //TODO: Move to utils
+    pub fn upload_texture(ctx: &egui::Context, image: DynamicImage) -> egui::TextureHandle{
 
         let size = [image.width() as usize, image.height() as usize];
         let rgba_buffer = image.to_rgba8();
@@ -186,7 +186,9 @@ impl ImageViewer {
         let current_slice = 0;
         let new_slice = volume.slices[current_slice].clone();
 
-        let texture = self.upload_texture(ctx, new_slice);
+
+        //TODO: Use upload_image here
+        let texture = ImageViewer::upload_texture(ctx, new_slice);
         let size = texture.size_vec2();
 
         self.source = Some(ImageSource::Volume {
@@ -202,7 +204,7 @@ impl ImageViewer {
 
     fn upload_image(&mut self, ctx: &egui::Context, image: DynamicImage) {
 
-        let texture = self.upload_texture(ctx, image);
+        let texture = ImageViewer::upload_texture(ctx, image);
         let size = texture.size_vec2();
 
         self.source = Some(ImageSource::Single {
