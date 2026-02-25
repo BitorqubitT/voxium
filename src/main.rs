@@ -61,6 +61,12 @@ enum ImageSource {
     },
 }
 
+pub struct MetaData {
+    pub patient_id: Option<String>,
+    pub patient_name: Option<String>,
+    pub patient_weight: Option<i32>,
+}
+
 struct ImageViewer {
     source: Option<ImageSource>,
     transform: ViewTransform,
@@ -120,21 +126,8 @@ impl ImageViewer {
     }
 
     pub fn reset(&mut self) {
+        // TODO: add this to button
         self.transform = ViewTransform::default();
-    }
-
-    pub fn zoom_to_fit(&mut self, ui: &egui::Ui) {
-        let texture = match &self.source {
-            Some(ImageSource::Single { texture }) => texture,
-            Some(ImageSource::Volume { texture, .. }) => texture,
-            None => return,
-        };
-
-        let available = ui.available_size();
-        let scale_x = available.x / texture.size.x;
-        let scale_y = available.y / texture.size.y;
-        self.transform.zoom = scale_x.min(scale_y);
-        self.transform.offset = egui::Vec2::ZERO;
     }
 
     pub fn next_slice(&mut self, ui: &egui::Ui) {
@@ -159,7 +152,23 @@ impl ImageViewer {
     }
 
     pub fn prev_slice(&mut self, ui: &egui::Ui) {
+        if let Some(ImageSource::Volume { volume, texture, current_slice }) = &mut self.source {
+            if *current_slice != 0 {
 
+                let next_slice = (*current_slice - 1) % volume.slices.len();
+
+                *current_slice = next_slice;
+
+                let new_image = volume.slices[next_slice].clone();
+                let new_image = ImageViewer::upload_texture(ui.ctx(), new_image);
+                let size = new_image.size_vec2();
+                
+                *texture = ImageData {
+                    texture: new_image.clone(),
+                    size,
+                };
+            }
+        }
     }
 
     //TODO: Move to utils
@@ -225,6 +234,7 @@ struct MyApp {
     zoom_level: i32,
     path: PathBuf,
     viewer: ImageViewer,
+    meta_data: MetaData,
 }
 
 impl Default for MyApp {
@@ -238,6 +248,11 @@ impl Default for MyApp {
                 source: None,
                 transform:  ViewTransform::default(),
             },
+            meta_data: MetaData {
+                patient_id: None,
+                patient_name: None,
+                patient_weight: None,
+            }
         }
     }
 }
@@ -252,10 +267,43 @@ impl MyApp {
         }
     }
 
+    fn get_meta_data(&self) {
+        // TODO: change this, too much dupliocate code
+        // TODO: create struct to hold meta data
+        let obj = match self.determine_file_type(){
+            "dcm" => {
+                let obj = open_file(&self.path)?;
+            }
+            "dir" => {
+                for file_name in fs::read_dir(&self.path)?.flatten(){
+                    let obj = open_file(file_name.path())?;
+                    break;
+                }
+            }
+            _ => return Err("Unsupported file type".into()),
+        };
+
+        // TODO: check these
+        let patient_id = obj.element(tags::IMAGE_POSITION_PATIENT)?.to_str()?.to_string();
+        let patient_weight = obj.element(tags::PATIENT_WEIGHT)?.to_str()?.to_string();
+        let patient_name = obj.element(tags::PATIENT_NAME)?.to_str()?.to_string();
+
+
+        self.meta_data = MetaData {
+            patient_id,
+            patient_name,
+            patient_weight,
+        };
+
+        Ok(())
+
+    }
+
     fn file_opener(&mut self, ctx: &egui::Context) -> Result<(), Box<dyn std::error::Error>> {
         match self.determine_file_type(){
             "dcm" => {
             let obj = open_file(&self.path)?;
+            dump_file(&obj)?;
             let image = self.convert_dicom_to_image(obj)?;
             self.viewer.upload_image(ctx, image);
             
@@ -289,26 +337,21 @@ impl MyApp {
         let mut id_and_images = Vec::new();
 
         //TODO: Check if tags are present and use the present one to order
-
-        let mut counter = 0;
-
+        //TODO: SHould have a check to see if its dicom
         for file_name in fs::read_dir(&self.path)?.flatten(){
             let obj = open_file(file_name.path())?;
 
             let image_position = obj.element(tags::IMAGE_POSITION_PATIENT)?.to_str()?.to_string();
             let instance_number = obj.element(tags::INSTANCE_NUMBER)?.to_str()?.to_string();
             let patient_name = obj.element(tags::PATIENT_NAME)?.to_str()?.to_string();
-            println!("{patient_name}, {instance_number}, {image_position}");
 
             let image = self.convert_dicom_to_image(obj)?;
 
-            let counter = counter + 1;
             id_and_images.push((instance_number, image))
 
         }
 
         id_and_images.sort_by(|a, b| a.0.cmp(&b.0));
-        println!("{:?}", id_and_images[0].0);
 
         let images_vector: Vec<DynamicImage> = id_and_images.into_iter().map(|(_, b)| b).collect();
 
@@ -375,6 +418,9 @@ impl eframe::App for MyApp {
             ui.add(egui::Slider::new(&mut self.height, 140..=220).text("height"));
             ui.add(egui::Slider::new(&mut self.image_size, 50.0..=900.0).text("image size"));
             ui.add(egui::Slider::new(&mut self.zoom_level, 40..=150).text("zoom level"));
+            ui.label("Display information here.");
+            ui.label("Display information here.");
+            ui.label("Display information here.");
         });
 
         // Always centrapnel as last one.
@@ -383,6 +429,9 @@ impl eframe::App for MyApp {
 
             if ui.input(|i|i.key_pressed(egui::Key::N)) {
                 self.viewer.next_slice(ui);
+            };
+            if ui.input(|i|i.key_pressed(egui::Key::P)) {
+                self.viewer.prev_slice(ui);
             };
 
             self.viewer.ui(ui);
