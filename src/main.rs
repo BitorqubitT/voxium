@@ -267,7 +267,7 @@ impl MyApp {
         }
     }
 
-    fn get_meta_data(&self) {
+    fn get_meta_data(&self) -> Result<(), _>{
         // TODO: change this, too much dupliocate code
         // TODO: create struct to hold meta data
         let obj = match self.determine_file_type(){
@@ -287,7 +287,6 @@ impl MyApp {
         let patient_id = obj.element(tags::IMAGE_POSITION_PATIENT)?.to_str()?.to_string();
         let patient_weight = obj.element(tags::PATIENT_WEIGHT)?.to_str()?.to_string();
         let patient_name = obj.element(tags::PATIENT_NAME)?.to_str()?.to_string();
-
 
         self.meta_data = MetaData {
             patient_id,
