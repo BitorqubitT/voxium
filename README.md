@@ -12,8 +12,6 @@ Writing a DICOM viewer for fun
 
 
 # TODO:
-- Get a simple window and display some text (done)
-- Interactive button (done)
-- Load a DICOM file
-- Visualise 2d file
-- Button for getting file from disk
+- cleanup load directory
+- cleanup get metadata
+- display metadata in ui

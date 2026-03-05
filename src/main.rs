@@ -64,7 +64,7 @@ enum ImageSource {
 pub struct MetaData {
     pub patient_id: Option<String>,
     pub patient_name: Option<String>,
-    pub patient_weight: Option<i32>,
+    pub patient_weight: Option<String>,
 }
 
 struct ImageViewer {
@@ -267,26 +267,33 @@ impl MyApp {
         }
     }
 
-    fn get_meta_data(&self) -> Result<(), _>{
+    fn get_meta_data(&mut self) -> Result<(), Box<dyn std::error::Error>>{
         // TODO: change this, too much dupliocate code
         // TODO: create struct to hold meta data
         let obj = match self.determine_file_type(){
-            "dcm" => {
-                let obj = open_file(&self.path)?;
-            }
+            "dcm" => open_file(&self.path)?,
             "dir" => {
+                let mut obj = None;
+                // TODO: UGLYYYYYYYYYYYYYYY code, alternative to loop?
                 for file_name in fs::read_dir(&self.path)?.flatten(){
-                    let obj = open_file(file_name.path())?;
+                    // TODO: check this
+                    let obj = Some(open_file(file_name.path())?);
                     break;
                 }
+                obj.ok_or("No file")?
             }
             _ => return Err("Unsupported file type".into()),
         };
 
-        // TODO: check these
-        let patient_id = obj.element(tags::IMAGE_POSITION_PATIENT)?.to_str()?.to_string();
-        let patient_weight = obj.element(tags::PATIENT_WEIGHT)?.to_str()?.to_string();
-        let patient_name = obj.element(tags::PATIENT_NAME)?.to_str()?.to_string();
+        // TODO: check these maybe change to:
+        //let patient_id = obj
+        //.element(tags::IMAGE_POSITION_PATIENT)
+        //.ok()
+        //.and_then(|e| e.to_str().ok())
+        //.map(|s| s.to_string());
+        let patient_id = Some(obj.element(tags::IMAGE_POSITION_PATIENT)?.to_str()?.to_string());
+        let patient_weight = Some(obj.element(tags::PATIENT_WEIGHT)?.to_str()?.to_string());
+        let patient_name = Some(obj.element(tags::PATIENT_NAME)?.to_str()?.to_string());
 
         self.meta_data = MetaData {
             patient_id,
