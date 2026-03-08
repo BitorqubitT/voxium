@@ -15,3 +15,10 @@ Writing a DICOM viewer for fun
 - cleanup load directory
 - cleanup get metadata
 - display metadata in ui
+- change structs for 3d volume
+- implement ray marching
+- wgpu to egui?
+
+
+# Extra: 
+- segmentation 
