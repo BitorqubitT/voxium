@@ -1,10 +1,10 @@
 use eframe::egui;
-use dicom_object::{DefaultDicomObject, FileDicomObject, InMemDicomObject, open_file, ReadError, AccessError};
+use dicom_object::{FileDicomObject, InMemDicomObject, open_file, ReadError, AccessError};
 use dicom_pixeldata::{PixelDecoder};
 use image::DynamicImage;
 use dicom_dump::dump_file;
 use dicom::dictionary_std::tags;
-use std::{fs, path::PathBuf, thread::current};
+use std::{fs, path::PathBuf};
 
 fn main() -> eframe::Result {
     env_logger::init();
@@ -123,11 +123,6 @@ impl ImageViewer {
             ),
             egui::Color32::WHITE,
         );
-    }
-
-    pub fn reset(&mut self) {
-        // TODO: add this to button
-        self.transform = ViewTransform::default();
     }
 
     pub fn next_slice(&mut self, ui: &egui::Ui) {
@@ -268,7 +263,7 @@ impl MyApp {
     }
 
     fn get_meta_data(&mut self) -> Result<(), Box<dyn std::error::Error>>{
-        // TODO: change this, too much dupliocate code
+        // TODO: optimise later, keep repeating the check type part
         let obj = match self.determine_file_type(){
             "dcm" => open_file(&self.path)?,
             "dir" => {
@@ -276,7 +271,7 @@ impl MyApp {
                 // TODO: UGLYYYYYYYYYYYYYYY code, alternative to loop?
                 for file_name in fs::read_dir(&self.path)?.flatten(){
                     // TODO: check this
-                    let obj = Some(open_file(file_name.path())?);
+                    Some(open_file(file_name.path())?);
                     break;
                 }
                 obj.ok_or("No file")?
@@ -284,7 +279,6 @@ impl MyApp {
             _ => return Err("Unsupported file type".into()),
         };
 
-        // TODO: check these maybe change to:
         let patient_id = obj
         .element(tags::IMAGE_POSITION_PATIENT)
         .ok()
@@ -303,10 +297,6 @@ impl MyApp {
         .and_then(|e| e.to_str().ok())
         .map(|s| s.to_string());
         
-        //let patient_id = Some(obj.element(tags::IMAGE_POSITION_PATIENT)?.to_str()?.to_string());
-        //let patient_weight = Some(obj.element(tags::PATIENT_WEIGHT)?.to_str()?.to_string());
-        //let patient_name = Some(obj.element(tags::PATIENT_NAME)?.to_str()?.to_string());
-
         self.meta_data = MetaData {
             patient_id,
             patient_name,
@@ -330,6 +320,9 @@ impl MyApp {
                 //TODO: Add support
                 let image = image::open(&self.path)?;
                 self.viewer.upload_image(ctx, image);
+                // better to propegate the error this way
+                //let _ = self.get_meta_data();
+                self.get_meta_data()?;
             }
             "dir" => {
                 //TODO: Maybe split this partly
