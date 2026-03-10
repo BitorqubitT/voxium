@@ -269,7 +269,6 @@ impl MyApp {
 
     fn get_meta_data(&mut self) -> Result<(), Box<dyn std::error::Error>>{
         // TODO: change this, too much dupliocate code
-        // TODO: create struct to hold meta data
         let obj = match self.determine_file_type(){
             "dcm" => open_file(&self.path)?,
             "dir" => {
@@ -286,14 +285,27 @@ impl MyApp {
         };
 
         // TODO: check these maybe change to:
-        //let patient_id = obj
-        //.element(tags::IMAGE_POSITION_PATIENT)
-        //.ok()
-        //.and_then(|e| e.to_str().ok())
-        //.map(|s| s.to_string());
-        let patient_id = Some(obj.element(tags::IMAGE_POSITION_PATIENT)?.to_str()?.to_string());
-        let patient_weight = Some(obj.element(tags::PATIENT_WEIGHT)?.to_str()?.to_string());
-        let patient_name = Some(obj.element(tags::PATIENT_NAME)?.to_str()?.to_string());
+        let patient_id = obj
+        .element(tags::IMAGE_POSITION_PATIENT)
+        .ok()
+        .and_then(|e| e.to_str().ok())
+        .map(|s| s.to_string());
+        
+        let patient_name = obj
+        .element(tags::PATIENT_NAME)
+        .ok()
+        .and_then(|e| e.to_str().ok())
+        .map(|s| s.to_string());
+        
+        let patient_weight = obj
+        .element(tags::PATIENT_WEIGHT)
+        .ok()
+        .and_then(|e| e.to_str().ok())
+        .map(|s| s.to_string());
+        
+        //let patient_id = Some(obj.element(tags::IMAGE_POSITION_PATIENT)?.to_str()?.to_string());
+        //let patient_weight = Some(obj.element(tags::PATIENT_WEIGHT)?.to_str()?.to_string());
+        //let patient_name = Some(obj.element(tags::PATIENT_NAME)?.to_str()?.to_string());
 
         self.meta_data = MetaData {
             patient_id,
