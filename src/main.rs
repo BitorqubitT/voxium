@@ -267,14 +267,12 @@ impl MyApp {
         let obj = match self.determine_file_type(){
             "dcm" => open_file(&self.path)?,
             "dir" => {
-                let mut obj = None;
-                // TODO: UGLYYYYYYYYYYYYYYY code, alternative to loop?
-                for file_name in fs::read_dir(&self.path)?.flatten(){
-                    // TODO: check this
-                    Some(open_file(file_name.path())?);
-                    break;
-                }
-                obj.ok_or("No file")?
+                let entry = fs::read_dir(&self.path)?
+                    .flatten()
+                    .next()
+                    .ok_or("No file in directory")?;
+
+                open_file(entry.path())?
             }
             _ => return Err("Unsupported file type".into()),
         };
@@ -322,11 +320,11 @@ impl MyApp {
                 self.viewer.upload_image(ctx, image);
                 // better to propegate the error this way
                 //let _ = self.get_meta_data();
-                self.get_meta_data()?;
             }
             "dir" => {
                 //TODO: Maybe split this partly
                 self.load_directory(ctx)?;
+                self.get_meta_data()?;
             }
             _ => { 
                 return Err("Unsupported file typ".into());
@@ -352,9 +350,8 @@ impl MyApp {
         for file_name in fs::read_dir(&self.path)?.flatten(){
             let obj = open_file(file_name.path())?;
 
-            let image_position = obj.element(tags::IMAGE_POSITION_PATIENT)?.to_str()?.to_string();
+            //let image_position = obj.element(tags::IMAGE_POSITION_PATIENT)?.to_str()?.to_string();
             let instance_number = obj.element(tags::INSTANCE_NUMBER)?.to_str()?.to_string();
-            let patient_name = obj.element(tags::PATIENT_NAME)?.to_str()?.to_string();
 
             let image = self.convert_dicom_to_image(obj)?;
 
