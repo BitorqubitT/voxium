@@ -238,7 +238,7 @@ impl Default for MyApp {
             height: 180,
             image_size: 30.,
             zoom_level: 100,
-            path: "data/MRBRAIN.dcm".into(),
+            path: "data/1-1.dcm".into(),
             viewer: ImageViewer {
                 source: None,
                 transform:  ViewTransform::default(),
@@ -398,7 +398,9 @@ impl eframe::App for MyApp {
                 });
                 ui.menu_button("File", |ui| {
                     if ui.button("Button 2 open directory").clicked() {
-                        self.path = r"D:\dataset\manifest-1771003632643\PSMA-PET-CT-Lesions\PSMA_0ef9e2afd72f7483\08-27-2002-NA-PETCT whole-body PSMA-67604\2.000000-CT-96689".into();
+                        //self.path = r"D:\dataset\manifest-1771003632643\PSMA-PET-CT-Lesions\PSMA_0ef9e2afd72f7483\08-27-2002-NA-PETCT whole-body PSMA-67604\2.000000-CT-96689".into();
+                        //self.path = r"D:\dataset\manifest-1771003632643\PSMA-PET-CT-Lesions\PSMA_55a7e47e7d24b12c\07-17-1997-NA-PETCT whole-body PSMA-25982\4.000000-CT-45230".into();
+                        self.path = r"D:\dataset\manifest-1771003632643\PSMA-PET-CT-Lesions\PSMA_de1f4300eda3bef3\03-16-2000-NA-PETCT whole-body PSMA-65818\3.000000-PET-48749".into();
                         if let Err(e) = self.file_opener(ctx) {
                             eprintln!("Error loading file: {}", e);
                         }
@@ -426,9 +428,18 @@ impl eframe::App for MyApp {
             ui.add(egui::Slider::new(&mut self.height, 140..=220).text("height"));
             ui.add(egui::Slider::new(&mut self.image_size, 50.0..=900.0).text("image size"));
             ui.add(egui::Slider::new(&mut self.zoom_level, 40..=150).text("zoom level"));
-            ui.label("Display information here.");
-            ui.label("Display information here.");
-            ui.label("Display information here.");
+            ui.label(format!(
+                "Patient id: {}",
+                self.meta_data.patient_id.as_deref().unwrap_or("N/A")
+            ));
+            ui.label(format!(
+                "Patient height: {}",
+                self.meta_data.patient_name.as_deref().unwrap_or("N/A")
+            ));
+            ui.label(format!(
+                "Patient weight: {}",
+                self.meta_data.patient_weight.as_deref().unwrap_or("N/A")
+            ));
         });
 
         // Always centrapnel as last one.
