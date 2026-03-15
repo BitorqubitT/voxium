@@ -5,7 +5,7 @@ use dicom_dump::dump_file;
 use dicom::dictionary_std::tags;
 use std::{fs, path::PathBuf};
 //use crate::data::VolumeData;
-use crate::dicom::{loader, metadata};
+use crate::dicom::{metadata};
 use crate::viewer::image_viewer::ImageViewer;
 use crate::dicom::metadata::MetaData;
 use crate::viewer::image_viewer::ViewTransform;

@@ -1,7 +1,7 @@
 use crate::data::image::ImageData;
 use crate::data::volume::VolumeData;
 
-enum ImageSource {
+pub enum ImageSource {
     Single {
         texture: ImageData,
     },

@@ -1,1 +1,1 @@
-pub use image_viewer;
+pub mod image_viewer;

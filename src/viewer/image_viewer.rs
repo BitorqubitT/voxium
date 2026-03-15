@@ -1,3 +1,7 @@
+use crate::data::image_source::ImageSource;
+use crate::data::image::ImageData;
+use crate::data::volume::VolumeData;
+use image::DynamicImage;
 
 pub struct ViewTransform {
     pub zoom: f32,
@@ -15,8 +19,8 @@ impl Default for ViewTransform {
 }
 
 pub struct ImageViewer {
-    source: Option<ImageSource>,
-    transform: ViewTransform,
+    pub source: Option<ImageSource>,
+    pub transform: ViewTransform,
 }
 
 //TODO: move this to its own file
@@ -153,7 +157,7 @@ impl ImageViewer {
 
     }
 
-    fn upload_image(&mut self, ctx: &egui::Context, image: DynamicImage) {
+    pub fn upload_image(&mut self, ctx: &egui::Context, image: DynamicImage) {
 
         let texture = ImageViewer::upload_texture(ctx, image);
         let size = texture.size_vec2();
