@@ -92,9 +92,7 @@ impl ImageViewer {
                 texture: new_image.clone(),
                 size,
             };
-
         }
-    
     }
 
     pub fn prev_slice(&mut self, ui: &egui::Ui) {
@@ -136,11 +134,8 @@ impl ImageViewer {
     // Put all gpu logic in the viewer
     pub fn load_volume(&mut self, ctx: &egui::Context, volume:VolumeData) {
 
-        // Any other way to do this? 
-        // We only clone one image, so not too bad.
         let current_slice = 0;
         let new_slice = volume.slices[current_slice].clone();
-
 
         //TODO: Use upload_image here
         let texture = ImageViewer::upload_texture(ctx, new_slice);
