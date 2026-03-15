@@ -10,11 +10,18 @@ Writing a DICOM viewer for fun
     egui shows that texture
     sliders control uniforms (window/level)
 
+data: all datastructs and manipulation of the data (loading, window/level, etc)
+render: rendering code (wgpu, shaders, etc)
+dicom: all dicom loading and parsing code (maybe move get metadata here too) (not sure yet about this)
+viewer: displaying the viewer
+
+app.rs: main app code, event loop
+
+
+
 
 # TODO:
-- cleanup load directory
-- cleanup get metadata
-- display metadata in ui
+- finish refactor to new structure
 - change structs for 3d volume
 - implement ray marching
 - wgpu to egui?

@@ -9,8 +9,8 @@ pub struct ImageData {
 }
 
 impl ImageData {
-    //TODO:Change names
-    pub fn upload_texture(ctx: &egui::Context, image: DynamicImage) -> egui::TextureHandle{
+    //TODO:Change implementation to new structure
+    pub fn upload_texture(self, ctx: &egui::Context, image: DynamicImage) -> egui::TextureHandle{
 
         let size = [image.width() as usize, image.height() as usize];
         let rgba_buffer = image.to_rgba8();
@@ -27,9 +27,10 @@ impl ImageData {
 
     pub fn upload_image(&mut self, ctx: &egui::Context, image: DynamicImage) {
 
-        let texture = ImageViewer::upload_texture(ctx, image);
+        let texture = self.upload_texture(ctx, image);
         let size = texture.size_vec2();
 
+        //TODO: change this
         self.source = Some(ImageSource::Single {
         texture: ImageData {
             texture,
