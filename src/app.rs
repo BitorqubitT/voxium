@@ -4,7 +4,6 @@ use image::DynamicImage;
 use dicom_dump::dump_file;
 use dicom::dictionary_std::tags;
 use std::{fs, path::PathBuf};
-//use crate::data::VolumeData;
 use crate::dicom::{metadata};
 use crate::viewer::image_viewer::ImageViewer;
 use crate::dicom::metadata::MetaData;
@@ -129,13 +128,10 @@ impl MyApp {
     }
 
     fn load_directory(&mut self, ctx: &egui::Context) -> Result<(), Box<dyn std::error::Error>> {
-        // load slice and sort slices
-        // read the meta data to sort them then put them in vec
         
         let mut id_and_images = Vec::new();
 
         //TODO: Check if tags are present and use the present one to order
-        //TODO: SHould have a check to see if its dicom
         for file_name in fs::read_dir(&self.path)?.flatten(){
             let obj = open_file(file_name.path())?;
 

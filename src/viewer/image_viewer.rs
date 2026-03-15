@@ -23,7 +23,6 @@ pub struct ImageViewer {
     pub transform: ViewTransform,
 }
 
-//TODO: move this to its own file
 impl ImageViewer {
     pub fn ui(&mut self, ui: &mut egui::Ui) {
         let texture = match &self.source {
@@ -77,92 +76,12 @@ impl ImageViewer {
     }
 
     pub fn next_slice(&mut self, ui: &egui::Ui) {
-
-        if let Some(ImageSource::Volume { volume, texture, current_slice }) = &mut self.source {
-            
-            let next_slice = (*current_slice + 1) % volume.slices.len();
-
-            *current_slice = next_slice;
-
-            let new_image = volume.slices[next_slice].clone();
-            let new_image = ImageViewer::upload_texture(ui.ctx(), new_image);
-            let size = new_image.size_vec2();
-            
-            *texture = ImageData {
-                texture: new_image.clone(),
-                size,
-            };
-        }
+        //TODO: call update_slice
     }
 
     pub fn prev_slice(&mut self, ui: &egui::Ui) {
-        if let Some(ImageSource::Volume { volume, texture, current_slice }) = &mut self.source {
-            if *current_slice != 0 {
-
-                let next_slice = (*current_slice - 1) % volume.slices.len();
-
-                *current_slice = next_slice;
-
-                let new_image = volume.slices[next_slice].clone();
-                let new_image = ImageViewer::upload_texture(ui.ctx(), new_image);
-                let size = new_image.size_vec2();
-                
-                *texture = ImageData {
-                    texture: new_image.clone(),
-                    size,
-                };
-            }
-        }
+        //TODO: call update_slice
     }
 
-    //TODO: Move to utils
-    pub fn upload_texture(ctx: &egui::Context, image: DynamicImage) -> egui::TextureHandle{
-
-        let size = [image.width() as usize, image.height() as usize];
-        let rgba_buffer = image.to_rgba8();
-        let pixels = rgba_buffer.as_raw();
-
-        let color_image = egui::ColorImage::from_rgba_unmultiplied(
-            size,
-            pixels,
-        );
-
-        ctx.load_texture("dicom_layer", color_image, Default::default())
-
-    }
-
-    // Put all gpu logic in the viewer
-    pub fn load_volume(&mut self, ctx: &egui::Context, volume:VolumeData) {
-
-        let current_slice = 0;
-        let new_slice = volume.slices[current_slice].clone();
-
-        //TODO: Use upload_image here
-        let texture = ImageViewer::upload_texture(ctx, new_slice);
-        let size = texture.size_vec2();
-
-        self.source = Some(ImageSource::Volume {
-            volume,
-            texture: ImageData {
-                texture,
-                size,
-            },
-            current_slice,
-        });
-
-    }
-
-    pub fn upload_image(&mut self, ctx: &egui::Context, image: DynamicImage) {
-
-        let texture = ImageViewer::upload_texture(ctx, image);
-        let size = texture.size_vec2();
-
-        self.source = Some(ImageSource::Single {
-        texture: ImageData {
-            texture,
-            size,
-            },
-        });
-    }    
 
 }
