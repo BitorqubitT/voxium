@@ -1,3 +1,6 @@
+use egui::Image;
+use image::DynamicImage;
+
 use crate::data::image::ImageData;
 use crate::data::volume::VolumeData;
 use crate::viewer::image_viewer::ImageViewer;
@@ -15,20 +18,21 @@ pub enum ImageSource {
 
 impl ImageSource {
 
-    pub fn create_single(texture) -> Self {
+    pub fn create_single(ctx: &egui::Context, image: DynamicImage) -> Self {
+        let new_image = image.clone();
+        let texture = ImageData::from_image(ctx, new_image);
         ImageSource::Single {
             texture
         }
     }
 
-    pub fn create_volume(ui, volume) -> Self {
+    pub fn create_volume(ctx: &egui::Context, volume: VolumeData) -> Self {
         let new_image = volume.slices[0].clone();
-        let texture = ImageData::upload_texture(ui.ctx(), new_image);
-        let size= texture.size_vec2();
+        let texture = ImageData::from_image(ctx, new_image);
 
         ImageSource::Volume {
             volume,
-            texture: ImageData {texture, size},
+            texture,
             current_slice: 0,
         }
     }

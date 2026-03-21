@@ -1,6 +1,7 @@
 use crate::data::image_source::ImageSource;
 use crate::data::image::ImageData;
 use crate::data::volume::VolumeData;
+
 use image::DynamicImage;
 
 pub struct ViewTransform {
@@ -78,29 +79,21 @@ impl ImageViewer {
     // Put all gpu logic in the viewer
     pub fn load_volume(&mut self, ctx: &egui::Context, volume:VolumeData) {
 
-        let current_slice = 0;
-        let new_slice = volume.slices[current_slice].clone();
-
-        //TODO: Use upload_image here
-        let texture = ImageData::upload_texture(ctx, new_slice);
-        let size = texture.size_vec2();
-
-        self.source = Some(ImageSource::Volume {
-            volume,
-            texture: ImageData {
-                texture,
-                size,
-            },
-            current_slice,
-        });
+        self.source = Some(ImageSource::create_volume(ctx, volume));
 
     }
 
-    pub fn next_slice(&mut self, ui: &egui::Ui) {
+    pub fn load_image(&mut self, ctx: &egui::Context, image:DynamicImage) {
+
+        self.source = Some(ImageSource::create_single(ctx, image))
+
+    }
+
+    pub fn next_slice(&mut self, ctx: &egui::Ui) {
         //TODO: call update_slice
     }
 
-    pub fn prev_slice(&mut self, ui: &egui::Ui) {
+    pub fn prev_slice(&mut self, ctx: &egui::Ui) {
         //TODO: call update_slice
     }
 
