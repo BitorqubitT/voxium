@@ -1,5 +1,4 @@
 use crate::data::image_source::ImageSource;
-use crate::data::image::ImageData;
 use crate::data::volume::VolumeData;
 
 use image::DynamicImage;

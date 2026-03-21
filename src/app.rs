@@ -1,10 +1,9 @@
-use dicom_object::{FileDicomObject, InMemDicomObject, open_file, ReadError, AccessError};
+use dicom_object::{FileDicomObject, InMemDicomObject, open_file};
 use dicom_pixeldata::{PixelDecoder};
 use image::DynamicImage;
 use dicom_dump::dump_file;
 use dicom::dictionary_std::tags;
 use std::{fs, path::PathBuf};
-use crate::dicom::{metadata};
 use crate::viewer::image_viewer::ImageViewer;
 use crate::dicom::metadata::MetaData;
 use crate::viewer::image_viewer::ViewTransform;

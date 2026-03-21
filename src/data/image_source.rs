@@ -1,9 +1,7 @@
-use egui::Image;
 use image::DynamicImage;
 
 use crate::data::image::ImageData;
 use crate::data::volume::VolumeData;
-use crate::viewer::image_viewer::ImageViewer;
 
 pub enum ImageSource {
     Single {
