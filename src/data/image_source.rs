@@ -12,7 +12,7 @@ pub enum ImageSource {
     Volume {
         volume: VolumeData,
         texture: ImageData,
-        current_slice: usize,
+        current_slice: i32,
     },
 }
 
@@ -38,25 +38,18 @@ impl ImageSource {
     }
 
     //TODO: Create update slice delta -1 or 1
-    pub fn update_slice(&mut self, ui: &egui::Ui, delta:i32) {
-        // Check should be done when calling this method?
-        // TODO: Check where to put this. move to image_source
-        // We use imagesource volume and not volumedata
-        // volumedata is in imagesource
+    pub fn update_slice(&mut self, ctx: &egui::Context, delta:i32) {
         if let ImageSource::Volume { volume, texture, current_slice } = self {
 
-        let next_slice = (*current_slice + delta) % self.volume.slices.len();
+        // Use this because % is not true modulo
+        let next_slice = (*current_slice + delta).rem_euclid(volume.slices.len() as i32);
+        //let next_slice = (*current_slice as i32 + delta) % volume.slices.len() as i32;
 
         *current_slice = next_slice;
 
-        let new_image = self.volume.slices[next_slice].clone();
-        let new_image = ImageViewer::upload_texture(ui.ctx(), new_image);
-        let size = new_image.size_vec2();
+        let new_image = volume.slices[next_slice as usize].clone();
+        *texture = ImageData::from_image(ctx, new_image);
         
-        *texture = ImageData {
-            texture: new_image.clone(),
-            size,
-        };
         }
     }
 

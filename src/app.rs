@@ -99,13 +99,13 @@ impl MyApp {
             let obj = open_file(&self.path)?;
             dump_file(&obj)?;
             let image = self.convert_dicom_to_image(obj)?;
-            self.viewer.upload_image(ctx, image);
+            self.viewer.load_image(ctx, image);
             
             }
             "tiff" => {
                 //TODO: Add support
                 let image = image::open(&self.path)?;
-                self.viewer.upload_image(ctx, image);
+                self.viewer.load_image(ctx, image);
                 // better to propegate the error this way
                 //let _ = self.get_meta_data();
             }
@@ -228,10 +228,10 @@ impl eframe::App for MyApp {
             ui.heading("My dicom viewer");
 
             if ui.input(|i|i.key_pressed(egui::Key::N)) {
-                self.viewer.next_slice(ui);
+                self.viewer.next_slice(ctx);
             };
             if ui.input(|i|i.key_pressed(egui::Key::P)) {
-                self.viewer.prev_slice(ui);
+                self.viewer.prev_slice(ctx);
             };
 
             self.viewer.ui(ui);

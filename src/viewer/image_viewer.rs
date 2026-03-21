@@ -85,16 +85,22 @@ impl ImageViewer {
 
     pub fn load_image(&mut self, ctx: &egui::Context, image:DynamicImage) {
 
-        self.source = Some(ImageSource::create_single(ctx, image))
+        self.source = Some(ImageSource::create_single(ctx, image));
 
     }
 
-    pub fn next_slice(&mut self, ctx: &egui::Ui) {
-        //TODO: call update_slice
+    pub fn next_slice(&mut self, ctx: &egui::Context) {
+        //TODO: c
+        if let Some(ref mut image_source) = self.source {
+            image_source.update_slice(ctx, 1);
+        }
     }
 
-    pub fn prev_slice(&mut self, ctx: &egui::Ui) {
+    pub fn prev_slice(&mut self, ctx: &egui::Context) {
         //TODO: call update_slice
+        if let Some(ref mut image_source) = self.source {
+            image_source.update_slice(ctx, -1);
+        }
     }
 
 
