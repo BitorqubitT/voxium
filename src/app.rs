@@ -180,7 +180,7 @@ impl eframe::App for MyApp {
                 });
                 ui.menu_button("File", |ui| {
                     if ui.button("Button 2 open directory").clicked() {
-                        self.path = r"D:\dataset\manifest-1771003632643\PSMA-PET-CT-Lesions\PSMA_de1f4300eda3bef3\03-16-2000-NA-PETCT whole-body PSMA-65818\3.000000-PET-48749".into();
+                        self.path = r"D:\dataset\manifest-1771003632643\PSMA-PET-CT-Lesions\PSMA_a96814a79aa26c8f\08-16-2005-NA-PETCT whole-body PSMA-53100\4.000000-CT-10240".into();
                         if let Err(e) = self.file_opener(ctx) {
                             eprintln!("Error loading file: {}", e);
                         }

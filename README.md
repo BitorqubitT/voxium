@@ -1,7 +1,5 @@
 # GOAL
-
 Writing a DICOM viewer for fun
-
 
 # Architecture idea
     winit (window + events)
@@ -17,15 +15,10 @@ viewer: displaying the viewer
 
 app.rs: main app code, event loop
 
-
-
-
 # TODO:
-- finish refactor to new structure
+- implement dummy 3d rendering -> cube?
 - change structs for 3d volume
 - implement ray marching
-- wgpu to egui?
-
 
 # Extra: 
 - segmentation 

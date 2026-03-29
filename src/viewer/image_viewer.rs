@@ -14,7 +14,6 @@ impl Default for ViewTransform {
             zoom: 1.0,
             offset: egui::Vec2::ZERO,
         }
-
     }
 }
 
