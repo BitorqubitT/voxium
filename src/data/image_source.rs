@@ -9,6 +9,8 @@ pub enum ImageSource {
     },
     Volume {
         volume: VolumeData,
+        // TODO: check if I should keep texture.
+        // We store slices eventually to volume_data on gpu
         texture: ImageData,
         current_slice: i32,
     },

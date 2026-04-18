@@ -75,6 +75,7 @@ impl ImageViewer {
     }
 
     // Put all gpu logic in the viewer
+    // TODO: Change this for new logic
     pub fn load_volume(&mut self, ctx: &egui::Context, volume:VolumeData) {
 
         self.source = Some(ImageSource::create_volume(ctx, volume));

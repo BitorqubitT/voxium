@@ -127,7 +127,9 @@ impl MyApp {
     }
 
     fn load_directory(&mut self, ctx: &egui::Context) -> Result<(), Box<dyn std::error::Error>> {
-        
+
+        // ordering is especially import for 3d image
+
         let mut id_and_images = Vec::new();
 
         //TODO: Check if tags are present and use the present one to order
@@ -146,14 +148,19 @@ impl MyApp {
         id_and_images.sort_by(|a, b| a.0.cmp(&b.0));
 
         let images_vector: Vec<DynamicImage> = id_and_images.into_iter().map(|(_, b)| b).collect();
-
+        
+        // TODO: these names depend on the perspective
         let width = images_vector[0].width();
         let height = images_vector[0].height();
+        let depth = images_vector[0].len();
 
-        let volume = VolumeData{
-            slices: images_vector,
+        // TODO: Should loading be used in this method? or put it in file opener
+        let volume = VolumeCpu{
+
+            data: images_vector,
             width: width as usize,
             height: height as usize,
+            depth: depth as usize,
         };
         
         self.viewer.load_volume(ctx, volume);
