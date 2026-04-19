@@ -7,7 +7,8 @@ use std::{fs, path::PathBuf};
 use crate::viewer::image_viewer::ImageViewer;
 use crate::dicom::metadata::MetaData;
 use crate::viewer::image_viewer::ViewTransform;
-use crate::data::volume::VolumeData;
+use crate::data::volume::VolumeCpu;
+use crate::data::volume::VolumeGpu;
 // TODO: can do use crate::data::VolumeData;
 
 pub struct MyApp {
@@ -95,18 +96,14 @@ impl MyApp {
     fn file_opener(&mut self, ctx: &egui::Context) -> Result<(), Box<dyn std::error::Error>> {
         match self.determine_file_type(){
             "dcm" => {
+            //TODO: should it be possible to load a single image?
+            // prob not
+
             let obj = open_file(&self.path)?;
             dump_file(&obj)?;
             let image = self.convert_dicom_to_image(obj)?;
             self.viewer.load_image(ctx, image);
             
-            }
-            "tiff" => {
-                //TODO: Add support
-                let image = image::open(&self.path)?;
-                self.viewer.load_image(ctx, image);
-                // better to propegate the error this way
-                //let _ = self.get_meta_data();
             }
             "dir" => {
                 //TODO: Maybe split this partly
@@ -120,44 +117,70 @@ impl MyApp {
         Ok(())
     }
 
-    fn convert_dicom_to_image(&self, obj: FileDicomObject<InMemDicomObject>) -> Result<DynamicImage, Box<dyn std::error::Error>> {
+    fn convert_dicom_to_vec(&self, obj: FileDicomObject<InMemDicomObject>) -> Result<Vec<u16>, Box<dyn std::error::Error>> {
+        //TODO: Should check what type the dicom object is holding
         let decoded = obj.decode_pixel_data()?;
-        let image = decoded.to_dynamic_image(0)?;
-        Ok(image)
+        let data: Vec<u16> = decoded.to_vec::<u16>()?;
+
+        //TODO: any checks i should perform?
+        Ok(data)
     }
 
     fn load_directory(&mut self, ctx: &egui::Context) -> Result<(), Box<dyn std::error::Error>> {
+        // TODO: too much is happening in this function?
+
 
         // ordering is especially import for 3d image
-
         let mut id_and_images = Vec::new();
+        let mut expected_shape: Option<(usize, usize)> = None;
 
         //TODO: Check if tags are present and use the present one to order
         for file_name in fs::read_dir(&self.path)?.flatten(){
             let obj = open_file(file_name.path())?;
 
-            //let image_position = obj.element(tags::IMAGE_POSITION_PATIENT)?.to_str()?.to_string();
-            let instance_number = obj.element(tags::INSTANCE_NUMBER)?.to_str()?.to_string();
+            //let instance_number = obj.element(tags::INSTANCE_NUMBER)?.to_str()?.to_string();
+            let instance_number: i32 = obj
+            .element(tags::INSTANCE_NUMBER)?
+            .to_int()?; // important fix
 
-            let image = self.convert_dicom_to_image(obj)?;
+            let rows: usize = obj.element(tags::ROWS)?.to_int()?;
+            let cols: usize = obj.element(tags::COLUMNS)?.to_int()?;
+            let image = self.convert_dicom_to_vec(obj)?;
 
-            id_and_images.push((instance_number, image))
+            if image.len() != rows * cols {
+                return Err("Pixel buffer size mismatch".into());
+            }
+
+            if let Some((expected_rows, expected_cols)) = expected_shape {
+                if rows != expected_rows || cols != expected_cols {
+                    return Err(format!(
+                        "Mismatch shape: expected {} and {}. got {} and {}",
+                        expected_rows, rows, expected_cols, cols
+                    ).into());
+                }
+            } else {
+                expected_shape = Some((rows, cols));
+            }
+
+            id_and_images.push((instance_number, image));
 
         }
 
+        // correct numeric sort
         id_and_images.sort_by(|a, b| a.0.cmp(&b.0));
 
-        let images_vector: Vec<DynamicImage> = id_and_images.into_iter().map(|(_, b)| b).collect();
-        
-        // TODO: these names depend on the perspective
-        let width = images_vector[0].width();
-        let height = images_vector[0].height();
-        let depth = images_vector[0].len();
+        let depth = id_and_images.len();
+        let (height, width)  = expected_shape.ok_or("no image")?;
 
+        let mut volume_data = Vec::new();
+        for (_, image) in id_and_images{
+            volume_data.extend(image);
+        }
+    
         // TODO: Should loading be used in this method? or put it in file opener
         let volume = VolumeCpu{
 
-            data: images_vector,
+            data: volume_data,
             width: width as usize,
             height: height as usize,
             depth: depth as usize,

@@ -74,7 +74,6 @@ impl ImageViewer {
         );
     }
 
-    // Put all gpu logic in the viewer
     // TODO: Change this for new logic
     pub fn load_volume(&mut self, ctx: &egui::Context, volume:VolumeData) {
 
@@ -89,14 +88,14 @@ impl ImageViewer {
     }
 
     pub fn next_slice(&mut self, ctx: &egui::Context) {
-        //TODO: c
+        //TODO: Change these when we have 3d
         if let Some(ref mut image_source) = self.source {
             image_source.update_slice(ctx, 1);
         }
     }
 
     pub fn prev_slice(&mut self, ctx: &egui::Context) {
-        //TODO: call update_slice
+        //TODO: Change these when we have 3d
         if let Some(ref mut image_source) = self.source {
             image_source.update_slice(ctx, -1);
         }

@@ -1,14 +1,14 @@
 use image::DynamicImage;
 
 use crate::data::image::ImageData;
-use crate::data::volume::VolumeData;
+use crate::data::volume::VolumeCpu;
 
 pub enum ImageSource {
     Single {
         texture: ImageData,
     },
     Volume {
-        volume: VolumeData,
+        volume: VolumeCpu,
         // TODO: check if I should keep texture.
         // We store slices eventually to volume_data on gpu
         texture: ImageData,
@@ -26,7 +26,7 @@ impl ImageSource {
         }
     }
 
-    pub fn create_volume(ctx: &egui::Context, volume: VolumeData) -> Self {
+    pub fn create_volume(ctx: &egui::Context, volume: VolumeCpu) -> Self {
         let new_image = volume.slices[0].clone();
         let texture = ImageData::from_image(ctx, new_image);
 
@@ -37,7 +37,7 @@ impl ImageSource {
         }
     }
 
-    //TODO: Create update slice delta -1 or 1
+    // TODO: This will be changed when we have gpu loading. 
     pub fn update_slice(&mut self, ctx: &egui::Context, delta:i32) {
         if let ImageSource::Volume { volume, texture, current_slice } = self {
 

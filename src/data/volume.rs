@@ -1,5 +1,4 @@
 
-
 pub struct VolumeCpu {
 
     pub data: Vec<u16>,
@@ -11,13 +10,18 @@ pub struct VolumeCpu {
 
 
 
-
 impl VolumeCpu {
 
     pub fn to_gpu(self) {
 
 
 
+        let VolumeGpu {
+
+            texture: ,
+            view: ,
+            sampler: ,
+        }
 
 
     }
