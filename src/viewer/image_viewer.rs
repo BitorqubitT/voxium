@@ -1,6 +1,7 @@
 use crate::data::image_source::ImageSource;
 use crate::data::volume::VolumeData;
 
+use egui::{Image, ImageSource};
 use image::DynamicImage;
 
 pub struct ViewTransform {
@@ -74,31 +75,18 @@ impl ImageViewer {
         );
     }
 
-    // TODO: Change this for new logic
-    pub fn load_volume(&mut self, ctx: &egui::Context, volume:VolumeData) {
-
-        self.source = Some(ImageSource::create_volume(ctx, volume));
-
-    }
-
-    pub fn load_image(&mut self, ctx: &egui::Context, image:DynamicImage) {
-
-        self.source = Some(ImageSource::create_single(ctx, image));
-
-    }
-
-    pub fn next_slice(&mut self, ctx: &egui::Context) {
-        //TODO: Change these when we have 3d
-        if let Some(ref mut image_source) = self.source {
-            image_source.update_slice(ctx, 1);
+    fn render(&mut self, ctx: &egui::Context, source: &ImageSource) {
+        match source {
+            Some(ImageSource::Image(img)) => self.render_image(ctx, img),
+            Some(ImageSource::Volume { texture, .. }) => self.render_volume(ctx, texture),
+            None => (),
         }
     }
 
-    pub fn prev_slice(&mut self, ctx: &egui::Context) {
-        //TODO: Change these when we have 3d
-        if let Some(ref mut image_source) = self.source {
-            image_source.update_slice(ctx, -1);
-        }
+    fn render_image(&mut self, ctx: &egui::Context, image: &egui::TextureHandle) {
+    }
+
+    fn render_volume(&mut self, ctx: &egui::Context, texture: &wgpu::Texture) {
     }
 
 

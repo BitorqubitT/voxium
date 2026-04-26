@@ -9,9 +9,11 @@ use crate::dicom::metadata::MetaData;
 use crate::viewer::image_viewer::ViewTransform;
 use crate::data::volume::VolumeCpu;
 use crate::data::volume::VolumeGpu;
+use crate::data::image_source::ImageSource;
 // TODO: can do use crate::data::VolumeData;
 
 pub struct MyApp {
+    source: Option<ImageSource>,
     height: u32,
     image_size: f32,
     zoom_level: i32,
@@ -94,41 +96,35 @@ impl MyApp {
     }
 
     fn file_opener(&mut self, ctx: &egui::Context) -> Result<(), Box<dyn std::error::Error>> {
-        match self.determine_file_type(){
+        let source = match self.determine_file_type(){
             "dcm" => {
-            //TODO: should it be possible to load a single image?
-            // prob not
+                let obj = open_file(&self.path)?;
+                //dump_file(&obj)?;
+                let image = self.convert_dicom_to_image(obj);
+                // TODO: do i still want dynamicimage?
+                ImageSource::create_single(ctx, image);
 
-            let obj = open_file(&self.path)?;
-            dump_file(&obj)?;
-            let image = self.convert_dicom_to_image(obj)?;
-            self.viewer.load_image(ctx, image);
-            
             }
             "dir" => {
-                //TODO: Maybe split this partly
                 self.load_directory(ctx)?;
                 self.get_meta_data()?;
+                return Ok(());
             }
-            _ => { 
-                return Err("Unsupported file typ".into());
-            }
-        }
+
+            _ => return Err("Unsupported file type".into()),
+        }; 
+        self.source = Some(source);
         Ok(())
     }
 
-    fn convert_dicom_to_vec(&self, obj: FileDicomObject<InMemDicomObject>) -> Result<Vec<u16>, Box<dyn std::error::Error>> {
-        //TODO: Should check what type the dicom object is holding
+    fn convert_dicom_to_image(&self, obj: FileDicomObject<InMemDicomObject>) -> DynamicImage {
         let decoded = obj.decode_pixel_data()?;
-        let data: Vec<u16> = decoded.to_vec::<u16>()?;
-
-        //TODO: any checks i should perform?
+        let data =  
         Ok(data)
     }
 
     fn load_directory(&mut self, ctx: &egui::Context) -> Result<(), Box<dyn std::error::Error>> {
-        // TODO: too much is happening in this function?
-
+        // TODO: too much is happening in this function
 
         // ordering is especially import for 3d image
         let mut id_and_images = Vec::new();
@@ -185,8 +181,7 @@ impl MyApp {
             height: height as usize,
             depth: depth as usize,
         };
-        
-        self.viewer.load_volume(ctx, volume);
+        ImageSource::create_volume(ctx, volume);
 
         Ok(())
     }
