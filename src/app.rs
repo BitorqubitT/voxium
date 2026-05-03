@@ -1,7 +1,6 @@
 use dicom_object::{FileDicomObject, InMemDicomObject, open_file};
 use dicom_pixeldata::{PixelDecoder};
 use image::DynamicImage;
-use dicom_dump::dump_file;
 use dicom::dictionary_std::tags;
 use std::{fs, path::PathBuf};
 use crate::viewer::image_viewer::ImageViewer;
@@ -25,6 +24,7 @@ pub struct MyApp {
 impl Default for MyApp {
     fn default() -> Self {
         Self {
+            source: None,
             height: 180,
             image_size: 30.,
             zoom_level: 100,
@@ -96,34 +96,40 @@ impl MyApp {
     }
 
     fn file_opener(&mut self, ctx: &egui::Context) -> Result<(), Box<dyn std::error::Error>> {
-        let source = match self.determine_file_type(){
+        match self.determine_file_type(){
             "dcm" => {
                 let obj = open_file(&self.path)?;
                 //dump_file(&obj)?;
-                let image = self.convert_dicom_to_image(obj);
-                // TODO: do i still want dynamicimage?
-                ImageSource::create_single(ctx, image);
-
+                let image = self.convert_dicom_to_image(obj)?;
+                // TODO: Should return this imagesource and put it in app 
+                self.source = Some(ImageSource::create_single(ctx, image));
+                //TODO: Load it to viewer here
             }
             "dir" => {
-                self.load_directory(ctx)?;
                 self.get_meta_data()?;
-                return Ok(());
+                self.source = Some(self.load_directory()?);
+                //TODO: Load it to viewer here
             }
 
             _ => return Err("Unsupported file type".into()),
         }; 
-        self.source = Some(source);
         Ok(())
     }
 
-    fn convert_dicom_to_image(&self, obj: FileDicomObject<InMemDicomObject>) -> DynamicImage {
+    fn convert_dicom_to_image(&self, obj: FileDicomObject<InMemDicomObject>) -> Result<DynamicImage, Box<dyn std::error::Error>> {
         let decoded = obj.decode_pixel_data()?;
-        let data =  
-        Ok(data)
+        // Could remove param, because we are sure its just one image
+        let image = decoded.to_dynamic_image(0)?; 
+        Ok(image)
     }
 
-    fn load_directory(&mut self, ctx: &egui::Context) -> Result<(), Box<dyn std::error::Error>> {
+    fn convert_dicom_to_vec(&self, obj: FileDicomObject<InMemDicomObject>) -> Result<Vec<u16>, Box<dyn std::error::Error>> {
+        let decoded = obj.decode_pixel_data()?;
+        let pixels: Vec<u16> = decoded.to_vec()?;
+        Ok(pixels)
+    }
+
+    fn load_directory(&mut self) -> Result<ImageSource, Box<dyn std::error::Error>> {
         // TODO: too much is happening in this function
 
         // ordering is especially import for 3d image
@@ -175,15 +181,13 @@ impl MyApp {
     
         // TODO: Should loading be used in this method? or put it in file opener
         let volume = VolumeCpu{
-
             data: volume_data,
             width: width as usize,
             height: height as usize,
             depth: depth as usize,
         };
-        ImageSource::create_volume(ctx, volume);
-
-        Ok(())
+        //todo; add ok
+        return Ok(ImageSource::create_volume(volume));
     }
 
 }
@@ -252,6 +256,7 @@ impl eframe::App for MyApp {
             ui.heading("My dicom viewer");
 
             if ui.input(|i|i.key_pressed(egui::Key::N)) {
+                // TODO: eventually add these methods again
                 self.viewer.next_slice(ctx);
             };
             if ui.input(|i|i.key_pressed(egui::Key::P)) {

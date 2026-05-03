@@ -29,3 +29,11 @@ app.rs: main app code, event loop
 # Extra: 
 - segmentation 
 
+new setup:
+Unified Data Flow: All image data through ImageSource, eliminating direct manipulation of VolumeCpu or DynamicImage in the viewer.
+Consistent API: The viewer only deals with ImageSource
+
+ImageSource::Single handles individual images
+ImageSource::Volume manages 3D volumes
+
+make everything work through imagesource

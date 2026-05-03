@@ -30,7 +30,15 @@ impl ImageSource {
         })
     }
 
-    pub fn create_volume()
+    pub fn create_volume(volume: VolumeCpu) -> Self {
+        // TODO add gpu later
+        ImageSource::Volume(VolumeData {
+            cpu: Some(volume),
+            gpu: None,
+            current_slice: 0,
+        })
+    }
+
 }
 
 

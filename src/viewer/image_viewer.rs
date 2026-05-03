@@ -76,6 +76,7 @@ impl ImageViewer {
     }
 
     fn render(&mut self, ctx: &egui::Context, source: &ImageSource) {
+        // We use this to get the source from the viewer and then call the appropriate render function
         match source {
             Some(ImageSource::Image(img)) => self.render_image(ctx, img),
             Some(ImageSource::Volume { texture, .. }) => self.render_volume(ctx, texture),
