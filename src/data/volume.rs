@@ -1,3 +1,7 @@
+use wgpu::TexelCopyTextureInfo;
+use wgpu::TexelCopyBufferLayout;
+use bytemuck::{Pod, Zeroable};
+
 pub struct VolumeCpu {
     pub data: Vec<u16>,
     pub width: usize,
@@ -26,14 +30,14 @@ impl VolumeCpu {
         });
         
         queue.write_texture(
-            wgpu::ImageCopyTexture {
+            wgpu::TexelCopyTextureInfo {
                 texture: &texture,
                 mip_level: 0,
                 origin: wgpu::Origin3d::ZERO,
                 aspect: wgpu::TextureAspect::All,
             },
             bytemuck::cast_slice(&self.data),
-            wgpu::ImageDataLayout {
+            wgpu::TexelCopyBufferLayout {
                 offset: 0,
                 bytes_per_row: Some((self.width * 2) as u32), // u16 = 2 bytes
                 rows_per_image: Some(self.height as u32),
@@ -53,7 +57,7 @@ impl VolumeCpu {
             address_mode_w: wgpu::AddressMode::ClampToEdge,
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::MipmapFilterMode::Nearest,
             ..Default::default()
         });
 
