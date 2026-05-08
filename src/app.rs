@@ -7,7 +7,6 @@ use crate::viewer::image_viewer::ImageViewer;
 use crate::dicom::metadata::MetaData;
 use crate::viewer::image_viewer::ViewTransform;
 use crate::data::volume::VolumeCpu;
-use crate::data::volume::VolumeGpu;
 use crate::data::image_source::ImageSource;
 // TODO: can do use crate::data::VolumeData;
 
@@ -257,13 +256,14 @@ impl eframe::App for MyApp {
 
             if ui.input(|i|i.key_pressed(egui::Key::N)) {
                 // TODO: eventually add these methods again
-                self.viewer.next_slice(ctx);
+                //self.viewer.next_slice(ctx);
             };
             if ui.input(|i|i.key_pressed(egui::Key::P)) {
-                self.viewer.prev_slice(ctx);
+                //self.viewer.prev_slice(ctx);
             };
 
-            self.viewer.ui(ui);
+            // Here we give the source to viewer and let it decide what to do
+            self.viewer.ui(ui, self.source.as_mut());
 
         });
 

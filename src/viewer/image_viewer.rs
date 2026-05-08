@@ -1,8 +1,5 @@
 use crate::data::image_source::ImageSource;
-use crate::data::volume::VolumeData;
-
-use egui::{Image, ImageSource};
-use image::DynamicImage;
+use crate::data::image::ImageData;
 
 pub struct ViewTransform {
     pub zoom: f32,
@@ -24,12 +21,23 @@ pub struct ImageViewer {
 }
 
 impl ImageViewer {
-    pub fn ui(&mut self, ui: &mut egui::Ui) {
-        let texture = match &self.source {
-            Some(ImageSource::Single { texture }) => texture,
-            Some(ImageSource::Volume { texture, .. }) => texture,
+    pub fn ui(&mut self, ui: &mut egui::Ui, source: Option<&ImageSource>) {
+        
+        let source = match source {
+            Some(src) => src,
             None => return,
         };
+
+        match source {
+            ImageSource::Single(single) => {
+                // Do we need another reference?
+                self.render_image(ui, &single);
+            }
+            ImageSource::Volume(volume) => {
+                self.render_volume(ui, volume);
+            }
+        }
+    
         
         let available = ui.available_size();
         let (rect, response) =
@@ -57,22 +65,7 @@ impl ImageViewer {
             }
         }
 
-        let image_size = texture.size * self.transform.zoom;
 
-        let image_rect = egui::Rect::from_min_size(
-            rect.center() - image_size * 0.5 + self.transform.offset,
-            image_size,
-        );
-
-        ui.painter().image(
-            texture.texture.id(),
-            image_rect,
-            egui::Rect::from_min_max(
-                egui::Pos2::new(0.0, 0.0),
-                egui::Pos2::new(1.0, 1.0),
-            ),
-            egui::Color32::WHITE,
-        );
     }
 
     fn render(&mut self, ctx: &egui::Context, source: &ImageSource) {
@@ -84,11 +77,31 @@ impl ImageViewer {
         }
     }
 
-    fn render_image(&mut self, ctx: &egui::Context, image: &egui::TextureHandle) {
+    fn render_image(&mut self, ui: &mut egui::Ui, image: &ImageData) {
+        // i think i use draw code here?
+        let image_size = image.size * self.transform.zoom;
+
+        let available = ui.available_size();
+        let (rect, response) =
+            ui.allocate_exact_size(available, egui::Sense::drag());
+
+        let image_rect = egui::Rect::from_min_size(
+            rect.center() - image_size * 0.5 + self.transform.offset,
+            image_size,
+        );
+
+        ui.painter().image(
+            image.texture.id(),
+            image_rect,
+            egui::Rect::from_min_max(
+                egui::Pos2::new(0.0, 0.0),
+                egui::Pos2::new(1.0, 1.0),
+            ),
+            egui::Color32::WHITE,
+        );
     }
 
-    fn render_volume(&mut self, ctx: &egui::Context, texture: &wgpu::Texture) {
+    fn render_volume(&mut self, ui: &mut egui::Ui, texture: &wgpu::Texture) {
     }
-
 
 }
