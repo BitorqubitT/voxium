@@ -5,12 +5,8 @@ use crate::data::volume::VolumeCpu;
 use crate::data::volume::VolumeGpu;
 
 pub enum ImageSource {
-    Single(SingleImage),
+    Single(ImageData),
     Volume(VolumeData),
-}
-
-pub struct SingleImage {
-    pub texture: ImageData,
 }
 
 pub struct VolumeData {
@@ -24,9 +20,11 @@ impl ImageSource {
     pub fn create_single(ctx: &egui::Context, image: DynamicImage) -> Self {
         // Dont think i need clone here
         let new_image = image.clone();
-        let texture = ImageData::from_image(ctx, new_image);
-        ImageSource::Single(SingleImage {
-            texture,
+        let texture = ImageData::upload_texture(ctx, new_image);
+        let size = texture.size_vec2();
+        ImageSource::Single(ImageData{
+            texture: texture,
+            size: size,
         })
     }
 
