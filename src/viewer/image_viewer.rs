@@ -1,5 +1,7 @@
 use crate::data::image_source::ImageSource;
 use crate::data::image::ImageData;
+use crate::data::image_source::VolumeData;
+use crate::data::volume;
 
 pub struct ViewTransform {
     pub zoom: f32,
@@ -38,15 +40,7 @@ impl ImageViewer {
             }
         }
     
-        
-        let available = ui.available_size();
-        let (rect, response) =
-            ui.allocate_exact_size(available, egui::Sense::drag());
-
-        if response.dragged() {
-            self.transform.offset += response.drag_delta();
-        }
-
+       /* 
         // Zooming
         let scroll = ui.input(|i| i.raw_scroll_delta.y);
 
@@ -64,17 +58,8 @@ impl ImageViewer {
                         + mouse_pos.to_vec2();
             }
         }
+        */
 
-
-    }
-
-    fn render(&mut self, ctx: &egui::Context, source: &ImageSource) {
-        // We use this to get the source from the viewer and then call the appropriate render function
-        match source {
-            Some(ImageSource::Image(img)) => self.render_image(ctx, img),
-            Some(ImageSource::Volume { texture, .. }) => self.render_volume(ctx, texture),
-            None => (),
-        }
     }
 
     fn render_image(&mut self, ui: &mut egui::Ui, image: &ImageData) {
@@ -82,8 +67,7 @@ impl ImageViewer {
         let image_size = image.size * self.transform.zoom;
 
         let available = ui.available_size();
-        let (rect, response) =
-            ui.allocate_exact_size(available, egui::Sense::drag());
+        let (rect, response) = ui.allocate_exact_size(available, egui::Sense::drag());
 
         let image_rect = egui::Rect::from_min_size(
             rect.center() - image_size * 0.5 + self.transform.offset,
@@ -101,7 +85,17 @@ impl ImageViewer {
         );
     }
 
-    fn render_volume(&mut self, ui: &mut egui::Ui, texture: &wgpu::Texture) {
+    fn render_volume(&mut self, ui: &mut egui::Ui, volume: &VolumeData) { 
+    
+        // this is the full 3d image
+        let data: &Vec<u16> = &volume.cpu.as_ref().unwrap().data;
+
+        // First just render one slice as image using gpu
+
+        // 
+
+
+
     }
 
 }
