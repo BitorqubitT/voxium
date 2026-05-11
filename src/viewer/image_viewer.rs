@@ -17,6 +17,9 @@ impl Default for ViewTransform {
     }
 }
 
+//TODO: Check how i want to handle the source. At the moment I just use a reference to the source.
+// But what when I load to gpu and start augmenting the image.
+
 pub struct ImageViewer {
     pub source: Option<ImageSource>,
     pub transform: ViewTransform,

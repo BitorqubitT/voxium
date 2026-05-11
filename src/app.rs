@@ -261,9 +261,8 @@ impl eframe::App for MyApp {
             if ui.input(|i|i.key_pressed(egui::Key::P)) {
                 //self.viewer.prev_slice(ctx);
             };
-
             // Here we give the source to viewer and let it decide what to do
-            self.viewer.ui(ui, self.source.as_mut());
+            self.viewer.ui(ui, self.source.as_ref());
 
         });
 
