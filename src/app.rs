@@ -2,16 +2,20 @@ use dicom_object::{FileDicomObject, InMemDicomObject, open_file};
 use dicom_pixeldata::{PixelDecoder};
 use image::DynamicImage;
 use dicom::dictionary_std::tags;
+use wgpu::hal::gles::Adapter;
 use std::{fs, path::PathBuf};
 use crate::viewer::image_viewer::ImageViewer;
 use crate::dicom::metadata::MetaData;
 use crate::viewer::image_viewer::ViewTransform;
 use crate::data::volume::VolumeCpu;
 use crate::data::image_source::ImageSource;
+
 // TODO: can do use crate::data::VolumeData;
 
 pub struct MyApp {
     source: Option<ImageSource>,
+    device: Option<wgpu::Device>,
+    queue: Option<wgpu::Queue>,
     height: u32,
     image_size: f32,
     zoom_level: i32,
@@ -22,8 +26,13 @@ pub struct MyApp {
 
 impl Default for MyApp {
     fn default() -> Self {
+
+        let (device, queue) = get_device_and_queue();
+
         Self {
             source: None,
+            device: Some(device),
+            queue: Some(queue),
             height: 180,
             image_size: 30.,
             zoom_level: 100,
@@ -42,6 +51,25 @@ impl Default for MyApp {
 }
 
 impl MyApp {
+
+    fn get_device_and_queue(self) -> (wgpu::Device, wgpu::Queue) {
+        let (device, queue) = adapter.request_device(&wgpu::DeviceDescriptor {
+            label: None,
+            required_features: wgpu::Features::empty(),
+            experimental_features: wgpu::ExperimentalFeatures::disabled(),
+            required_limits: if cfg!(target_arch = "wasm32") {
+                wgpu::Limits::downlevel_webgl2_defaults()
+            } else {
+                wgpu::Limits::default()
+            },
+            memory_hints: Default::default(),
+            trace: wgpu::Trace::off,
+        })
+        .await?;
+
+
+
+    }
 
     fn determine_file_type(&self) -> &str {
         if self.path.is_dir() {

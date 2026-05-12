@@ -10,7 +10,7 @@ pub struct VolumeCpu {
 }
 
 impl VolumeCpu {
-    pub fn to_gpu(self, device: &wgpu::Device, queue: &wgpu::Queue) -> VolumeGpu {
+    pub fn to_gpu(&self, device: &wgpu::Device, queue: &wgpu::Queue) -> VolumeGpu {
         let size = wgpu::Extent3d {
             width: self.width as u32,
             height: self.height as u32,

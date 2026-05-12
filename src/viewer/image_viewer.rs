@@ -26,7 +26,12 @@ pub struct ImageViewer {
 }
 
 impl ImageViewer {
-    pub fn ui(&mut self, ui: &mut egui::Ui, source: Option<&ImageSource>) {
+    pub fn ui(&mut self, 
+              ui: &mut egui::Ui, 
+              source: Option<&ImageSource>, 
+              device: wgpu::Device,
+              queue: wgpu::Queue,
+              ) {
         
         let source = match source {
             Some(src) => src,
@@ -35,7 +40,8 @@ impl ImageViewer {
 
         match source {
             ImageSource::Single(single) => {
-                // Do we need another reference?
+                //TODO: check if we want to keep calling this. Or is there a better way
+                println!(" rendering single image");
                 self.render_image(ui, &single);
             }
             ImageSource::Volume(volume) => {
@@ -88,11 +94,11 @@ impl ImageViewer {
         );
     }
 
-    fn render_volume(&mut self, ui: &mut egui::Ui, volume: &VolumeData) { 
+    fn render_volume(&mut self, ui: &mut egui::Ui, volume: &VolumeData, device: &wgpu::Device, queue: &wgpu::Queue) { 
     
         // this is the full 3d image
-        let data: &Vec<u16> = &volume.cpu.as_ref().unwrap().data;
-
+        // need as_ref or we move the value out of the option
+        let volumgpu = volume.cpu.as_ref().unwrap().to_gpu(device, queue);
         // First just render one slice as image using gpu
 
         // 
