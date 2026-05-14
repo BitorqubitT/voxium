@@ -1,6 +1,7 @@
 use wgpu::TexelCopyTextureInfo;
 use wgpu::TexelCopyBufferLayout;
 use bytemuck::{Pod, Zeroable};
+use wgpu::util::DeviceExt;
 
 pub struct VolumeCpu {
     pub data: Vec<u16>,
@@ -11,47 +12,33 @@ pub struct VolumeCpu {
 
 impl VolumeCpu {
     pub fn to_gpu(&self, device: &wgpu::Device, queue: &wgpu::Queue) -> VolumeGpu {
-        let size = wgpu::Extent3d {
-            width: self.width as u32,
-            height: self.height as u32,
-            depth_or_array_layers: self.depth as u32,
-        };
-
-        let texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Volume Texture"),
-            size,
+      // only move it to gpu memory
+        let texture_descriptor = wgpu::TextureDescriptor {
+            label: Some("3d dicom texture"),
+            size: wgpu::Extent3d {
+                width: self.width as u32,
+                height: self.height as u32,
+                depth_or_array_layers: self.depth as u32
+            },
+            //TODO: check advantage of extra mips (performace?)
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D3,
             format: wgpu::TextureFormat::R16Uint,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING
-                | wgpu::TextureUsages::COPY_DST,
-            view_formats: &[],
-        });
+            //TODO: https://gpuweb.github.io/gpuweb/#typedefdef-gputextureusageflags check
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[]
+            };
+
+        let texture = device.create_texture(&texture_descriptor);
+
+        //TODO: Write code to actually transfer the data to gpu memory
+
         
-        queue.write_texture(
-            wgpu::TexelCopyTextureInfo {
-                texture: &texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-                aspect: wgpu::TextureAspect::All,
-            },
-            bytemuck::cast_slice(&self.data),
-            wgpu::TexelCopyBufferLayout {
-                offset: 0,
-                bytes_per_row: Some((self.width * 2) as u32), // u16 = 2 bytes
-                rows_per_image: Some(self.height as u32),
-            },
-            size,
-        );
-
-        let view = texture.create_view(&wgpu::TextureViewDescriptor {
-            dimension: Some(wgpu::TextureViewDimension::D3),
-            ..Default::default()
-        });
-
+        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+            
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            label: Some("Volume Sampler"),
+            label: Some("3d dicom sampler"),
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,
@@ -66,6 +53,7 @@ impl VolumeCpu {
             view,
             sampler,
         }
+
     }
 
     pub fn normalise(self) {
