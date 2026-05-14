@@ -31,9 +31,24 @@ impl VolumeCpu {
             };
 
         let texture = device.create_texture(&texture_descriptor);
+        
+        queue.write_texture(
+            &texture,
+            bytemuck::cast_slice(&self.data),
+            wgpu::TexelCopyBufferLayout{
+                offset: 0,
+                bytes_per_row: (self.width * std::mem::size_of::<u16>()) as u32,
+                rows_per_image: self.height as u32
+            },
+            wgpu::Extent3d {
+                width: self.width as u32,
+                height: self.height as u32,
+                depth_or_array_layers: self.depth as u32
+            }
 
+        );
         //TODO: Write code to actually transfer the data to gpu memory
-
+            //use queue
         
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
             

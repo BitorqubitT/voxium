@@ -52,7 +52,25 @@ impl Default for MyApp {
 
 impl MyApp {
 
+
+    //TODO: FIX THIS
+    // Check what the best setup is
     fn get_device_and_queue(self) -> (wgpu::Device, wgpu::Queue) {
+        let instance = Instance::new(InstanceDescriptor::new_with_display_handle(Box::new(event_loop.owned_display_handle())));
+
+        let adapter = instance
+            .enumerate_adapters(wgpu::Backends::all())
+            .await
+            .into_iter()
+            .filter(|adapter| {
+                // Check if this adapter supports our surface
+                adapter.is_surface_supported(&surface)
+            })
+            .next()
+            .unwrap()
+
+
+
         let (device, queue) = adapter.request_device(&wgpu::DeviceDescriptor {
             label: None,
             required_features: wgpu::Features::empty(),

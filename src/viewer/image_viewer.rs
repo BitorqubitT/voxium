@@ -29,8 +29,8 @@ impl ImageViewer {
     pub fn ui(&mut self, 
               ui: &mut egui::Ui, 
               source: Option<&ImageSource>, 
-              device: wgpu::Device,
-              queue: wgpu::Queue,
+              device: &wgpu::Device,
+              queue: &wgpu::Queue,
               ) {
         
         let source = match source {
@@ -45,7 +45,8 @@ impl ImageViewer {
                 self.render_image(ui, &single);
             }
             ImageSource::Volume(volume) => {
-                self.render_volume(ui, volume);
+                println!(" rendering volume image");
+                self.render_volume(ui, volume, &device, &queue);
             }
         }
     
@@ -101,7 +102,8 @@ impl ImageViewer {
         let volumgpu = volume.cpu.as_ref().unwrap().to_gpu(device, queue);
         // First just render one slice as image using gpu
 
-        // 
+        // I want option to just have a slice of the volume and to render the full 3d and display them next to eachother
+
 
 
 
