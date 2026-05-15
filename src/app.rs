@@ -2,7 +2,6 @@ use dicom_object::{FileDicomObject, InMemDicomObject, open_file};
 use dicom_pixeldata::{PixelDecoder};
 use image::DynamicImage;
 use dicom::dictionary_std::tags;
-use wgpu::hal::gles::Adapter;
 use std::{fs, path::PathBuf};
 use crate::viewer::image_viewer::ImageViewer;
 use crate::dicom::metadata::MetaData;
@@ -14,8 +13,6 @@ use crate::data::image_source::ImageSource;
 
 pub struct MyApp {
     source: Option<ImageSource>,
-    device: Option<wgpu::Device>,
-    queue: Option<wgpu::Queue>,
     height: u32,
     image_size: f32,
     zoom_level: i32,
@@ -27,12 +24,10 @@ pub struct MyApp {
 impl Default for MyApp {
     fn default() -> Self {
 
-        let (device, queue) = get_device_and_queue();
-
         Self {
             source: None,
-            device: Some(device),
-            queue: Some(queue),
+            device: None,
+            queue: None,
             height: 180,
             image_size: 30.,
             zoom_level: 100,
@@ -52,41 +47,60 @@ impl Default for MyApp {
 
 impl MyApp {
 
+    pub async fn new() -> Self {
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+            backends: wgpu::Backends::all(),
+            flags: wgpu::InstanceFlags::empty(),
 
-    //TODO: FIX THIS
-    // Check what the best setup is
-    fn get_device_and_queue(self) -> (wgpu::Device, wgpu::Queue) {
-        let instance = Instance::new(InstanceDescriptor::new_with_display_handle(Box::new(event_loop.owned_display_handle())));
+            backend_options: wgpu::BackendOptions::default(),
+            memory_budget_thresholds: wgpu::MemoryBudgetThresholds::default(),
+
+            display: None,
+        });
+
+        // surface must already exist (created from window)
+        let surface = /* created earlier */;
 
         let adapter = instance
-            .enumerate_adapters(wgpu::Backends::all())
-            .await
-            .into_iter()
-            .filter(|adapter| {
-                // Check if this adapter supports our surface
-                adapter.is_surface_supported(&surface)
+            .request_adapter(&wgpu::RequestAdapterOptions {
+                compatible_surface: Some(&surface),
+                power_preference: wgpu::PowerPreference::HighPerformance,
+                force_fallback_adapter: false,
             })
-            .next()
-            .unwrap()
+            .await
+            .unwrap();
 
-
-
-        let (device, queue) = adapter.request_device(&wgpu::DeviceDescriptor {
-            label: None,
-            required_features: wgpu::Features::empty(),
-            experimental_features: wgpu::ExperimentalFeatures::disabled(),
-            required_limits: if cfg!(target_arch = "wasm32") {
-                wgpu::Limits::downlevel_webgl2_defaults()
-            } else {
-                wgpu::Limits::default()
+        let (device, queue) = adapter
+            .request_device(
+                &wgpu::DeviceDescriptor {
+                    label: None,
+                    required_features: wgpu::Features::empty(),
+                    required_limits: wgpu::Limits::default(),
+                    memory_hints: Default::default(),
+                },
+                None,
+            )
+            .await
+            .unwrap();
+        
+        Self {
+            source: None,
+            device: Some(device),
+            queue: Some(queue),
+            height: 180,
+            image_size: 30.,
+            zoom_level: 100,
+            path: "data/1-1.dcm".into(),
+            viewer: ImageViewer {
+                source: None,
+                transform:  ViewTransform::default(),
             },
-            memory_hints: Default::default(),
-            trace: wgpu::Trace::off,
-        })
-        .await?;
-
-
-
+            meta_data: MetaData {
+                patient_id: None,
+                patient_name: None,
+                patient_weight: None,
+            }
+        }
     }
 
     fn determine_file_type(&self) -> &str {

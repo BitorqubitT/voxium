@@ -1,7 +1,4 @@
 use wgpu::TexelCopyTextureInfo;
-use wgpu::TexelCopyBufferLayout;
-use bytemuck::{Pod, Zeroable};
-use wgpu::util::DeviceExt;
 
 pub struct VolumeCpu {
     pub data: Vec<u16>,
@@ -28,28 +25,30 @@ impl VolumeCpu {
             //TODO: https://gpuweb.github.io/gpuweb/#typedefdef-gputextureusageflags check
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             view_formats: &[]
-            };
+        };
 
         let texture = device.create_texture(&texture_descriptor);
-        
+
         queue.write_texture(
-            &texture,
+            TexelCopyTextureInfo {
+                texture: &texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
             bytemuck::cast_slice(&self.data),
-            wgpu::TexelCopyBufferLayout{
+            wgpu::TexelCopyBufferLayout {
                 offset: 0,
-                bytes_per_row: (self.width * std::mem::size_of::<u16>()) as u32,
-                rows_per_image: self.height as u32
+                bytes_per_row: Some((self.width * std::mem::size_of::<u16>()) as u32),
+                rows_per_image: Some(self.height as u32),
             },
             wgpu::Extent3d {
                 width: self.width as u32,
                 height: self.height as u32,
-                depth_or_array_layers: self.depth as u32
-            }
-
+                depth_or_array_layers: self.depth as u32,
+            },
         );
-        //TODO: Write code to actually transfer the data to gpu memory
-            //use queue
-        
+
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
             
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {

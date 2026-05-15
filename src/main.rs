@@ -13,12 +13,16 @@ fn main() -> eframe::Result {
     };
 
     eframe::run_native(
-        "Voxium",
+        "app",
         options,
         Box::new(|cc| {
-            egui_extras::install_image_loaders(&cc.egui_ctx);
+            let device = cc.wgpu_render_state.as_ref().unwrap().device.clone();
+            let queue = cc.wgpu_render_state.as_ref().unwrap().queue.clone();
 
-            Ok(Box::<MyApp>::default())
+            Ok(Box::new(MyApp {
+                gpu: GpuContext { device, queue },
+                ..Default::default()
+            }))
         }),
-    )
+    );
 }

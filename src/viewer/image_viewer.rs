@@ -1,7 +1,6 @@
 use crate::data::image_source::ImageSource;
 use crate::data::image::ImageData;
 use crate::data::image_source::VolumeData;
-use crate::data::volume;
 
 pub struct ViewTransform {
     pub zoom: f32,
@@ -98,14 +97,16 @@ impl ImageViewer {
     fn render_volume(&mut self, ui: &mut egui::Ui, volume: &VolumeData, device: &wgpu::Device, queue: &wgpu::Queue) { 
     
         // this is the full 3d image
-        // need as_ref or we move the value out of the option
-        let volumgpu = volume.cpu.as_ref().unwrap().to_gpu(device, queue);
+        let _volumgpu = match volume.cpu.as_ref() {
+            Some(cpu) => cpu.to_gpu(device, queue),
+            None => return,
+        };
+
+        ui.label("volume ready on gpu");
+
         // First just render one slice as image using gpu
 
         // I want option to just have a slice of the volume and to render the full 3d and display them next to eachother
-
-
-
 
     }
 
