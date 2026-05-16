@@ -2,6 +2,7 @@ use dicom_object::{FileDicomObject, InMemDicomObject, open_file};
 use dicom_pixeldata::{PixelDecoder};
 use image::DynamicImage;
 use dicom::dictionary_std::tags;
+use wgpu::ExperimentalFeatures;
 use std::{fs, path::PathBuf};
 use crate::viewer::image_viewer::ImageViewer;
 use crate::dicom::metadata::MetaData;
@@ -13,6 +14,8 @@ use crate::data::image_source::ImageSource;
 
 pub struct MyApp {
     source: Option<ImageSource>,
+    device: Option<wgpu::Device>,
+    queue: Option<wgpu::Queue>,
     height: u32,
     image_size: f32,
     zoom_level: i32,
@@ -58,8 +61,8 @@ impl MyApp {
             display: None,
         });
 
-        // surface must already exist (created from window)
-        let surface = /* created earlier */;
+        //TODO: implement surface since i wont use egui for this
+        let surface = ;
 
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
@@ -73,13 +76,13 @@ impl MyApp {
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
+                    experimental_features: ExperimentalFeatures::empty(),
+                    trace: wgpu::TracePath::default(),
                     label: None,
                     required_features: wgpu::Features::empty(),
                     required_limits: wgpu::Limits::default(),
                     memory_hints: Default::default(),
-                },
-                None,
-            )
+                })
             .await
             .unwrap();
         
