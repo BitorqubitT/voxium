@@ -14,8 +14,7 @@ use crate::data::image_source::ImageSource;
 
 pub struct MyApp {
     source: Option<ImageSource>,
-    device: Option<wgpu::Device>,
-    queue: Option<wgpu::Queue>,
+    gpu: Option<Gpu>,
     height: u32,
     image_size: f32,
     zoom_level: i32,
@@ -29,8 +28,7 @@ impl Default for MyApp {
 
         Self {
             source: None,
-            device: None,
-            queue: None,
+            gpu: None,
             height: 180,
             image_size: 30.,
             zoom_level: 100,
@@ -48,48 +46,104 @@ impl Default for MyApp {
     }
 }
 
-impl MyApp {
+// https://sotrh.github.io/learn-wgpu/beginner/tutorial2-surface/
+pub struct Gpu {
+    pub device: wgpu::Device,
+    pub queue: wgpu::Queue,
+    pub surface: wgpu::Surface<'static>,
+    pub config: wgpu::SurfaceConfiguration,
+    pub window: Arc<Window>,
+}
 
-    pub async fn new() -> Self {
+impl Gpu {
+    async fn new(window: Arc<Window>) -> anyhow::Result<State> {
+        let size = window.inner_size();
+
+        // The instance is a handle to our GPU
+        // BackendBit::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::all(),
-            flags: wgpu::InstanceFlags::empty(),
-
-            backend_options: wgpu::BackendOptions::default(),
-            memory_budget_thresholds: wgpu::MemoryBudgetThresholds::default(),
-
+            #[cfg(not(target_arch = "wasm32"))]
+            backends: wgpu::Backends::PRIMARY,
+            #[cfg(target_arch = "wasm32")]
+            backends: wgpu::Backends::GL,
+            flags: Default::default(),
+            memory_budget_thresholds: Default::default(),
+            backend_options: Default::default(),
             display: None,
         });
 
-        //TODO: implement surface since i wont use egui for this
-        let surface = ;
+        let surface = instance.create_surface(window.clone()).unwrap();
 
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::default(),
                 compatible_surface: Some(&surface),
-                power_preference: wgpu::PowerPreference::HighPerformance,
                 force_fallback_adapter: false,
             })
+            .await?;
+
+        // ...
+        
+        let adapter = instance
+            .enumerate_adapters(wgpu::Backends::all())
             .await
+            .into_iter()
+            .filter(|adapter| {
+                // Check if this adapter supports our surface
+                adapter.is_surface_supported(&surface)
+            })
+            .next()
             .unwrap();
 
         let (device, queue) = adapter
-            .request_device(
-                &wgpu::DeviceDescriptor {
-                    experimental_features: ExperimentalFeatures::empty(),
-                    trace: wgpu::TracePath::default(),
-                    label: None,
-                    required_features: wgpu::Features::empty(),
-                    required_limits: wgpu::Limits::default(),
-                    memory_hints: Default::default(),
-                })
-            .await
-            .unwrap();
-        
+            .request_device(&wgpu::DeviceDescriptor {
+                label: None,
+                required_features: wgpu::Features::empty(),
+                experimental_features: wgpu::ExperimentalFeatures::disabled(),
+                // WebGL doesn't support all of wgpu's features, so if
+                // we're building for the web we'll have to disable some.
+                required_limits: if cfg!(target_arch = "wasm32") {
+                    wgpu::Limits::downlevel_webgl2_defaults()
+                } else {
+                    wgpu::Limits::default()
+                },
+                memory_hints: Default::default(),
+                trace: wgpu::Trace::Off,
+            })
+            .await?;
+
+        let caps = surface.get_capabilities(&adapter);
+        let surface_format = caps.formats[0];
+
+        Ok(Self {
+            device,
+            queue,
+            surface,
+            config: wgpu::SurfaceConfiguration {
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+                format: surface_format,
+                width: size.width,
+                height: size.height,
+                desired_maximum_frame_latency: 2,
+                view_formats: vec![],
+                present_mode: wgpu::PresentMode::Fifo,
+                alpha_mode: wgpu::CompositeAlphaMode::Auto,
+            },
+            window,
+        })
+
+        // ...
+    }
+}
+
+
+
+impl MyApp {
+
+    pub fn new() -> Self {
         Self {
             source: None,
-            device: Some(device),
-            queue: Some(queue),
+            gpu: None,
             height: 180,
             image_size: 30.,
             zoom_level: 100,
@@ -104,6 +158,11 @@ impl MyApp {
                 patient_weight: None,
             }
         }
+    }
+
+    //TODO: other options? Could also set non default withh gpu
+    pub fn set_gpu(&mut self, gpu: Gpu) {
+        self.gpu = Some(gpu);
     }
 
     fn determine_file_type(&self) -> &str {
