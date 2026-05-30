@@ -2,14 +2,15 @@ use dicom_object::{FileDicomObject, InMemDicomObject, open_file};
 use dicom_pixeldata::{PixelDecoder};
 use image::DynamicImage;
 use dicom::dictionary_std::tags;
-use wgpu::ExperimentalFeatures;
 use std::{fs, path::PathBuf};
 use crate::viewer::image_viewer::ImageViewer;
 use crate::dicom::metadata::MetaData;
 use crate::viewer::image_viewer::ViewTransform;
 use crate::data::volume::VolumeCpu;
 use crate::data::image_source::ImageSource;
-
+use std::sync::Arc;
+use winit::window::Window;
+use anyhow::Result;
 // TODO: can do use crate::data::VolumeData;
 
 pub struct MyApp {
@@ -55,8 +56,9 @@ pub struct Gpu {
     pub window: Arc<Window>,
 }
 
+//Use anyhow in case no gpu detection?
 impl Gpu {
-    async fn new(window: Arc<Window>) -> anyhow::Result<State> {
+    async fn new(window: Arc<Window>) -> anyhow::Result<Gpu> {
         let size = window.inner_size();
 
         // The instance is a handle to our GPU
@@ -74,6 +76,7 @@ impl Gpu {
 
         let surface = instance.create_surface(window.clone()).unwrap();
 
+        // select correct gpu
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::default(),
@@ -81,19 +84,6 @@ impl Gpu {
                 force_fallback_adapter: false,
             })
             .await?;
-
-        // ...
-        
-        let adapter = instance
-            .enumerate_adapters(wgpu::Backends::all())
-            .await
-            .into_iter()
-            .filter(|adapter| {
-                // Check if this adapter supports our surface
-                adapter.is_surface_supported(&surface)
-            })
-            .next()
-            .unwrap();
 
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
@@ -161,6 +151,7 @@ impl MyApp {
     }
 
     //TODO: other options? Could also set non default withh gpu
+    //TODO: When do we use this? Do we create on app startup or only when needing it?
     pub fn set_gpu(&mut self, gpu: Gpu) {
         self.gpu = Some(gpu);
     }
@@ -384,8 +375,16 @@ impl eframe::App for MyApp {
                 //self.viewer.prev_slice(ctx);
             };
             // Here we give the source to viewer and let it decide what to do
-            self.viewer.ui(ui, self.source.as_ref());
-
+            if let Some(gpu) = &self.gpu {
+                self.viewer.ui(
+                    ui,
+                    self.source.as_ref(),
+                    &gpu.device,
+                    &gpu.queue,
+                );
+            } else {
+                ui.label("(no GPU)");
+            }
         });
 
     }
