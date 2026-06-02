@@ -126,8 +126,6 @@ impl Gpu {
     }
 }
 
-
-
 impl MyApp {
 
     pub fn new() -> Self {
@@ -196,11 +194,30 @@ impl MyApp {
         .ok()
         .and_then(|e| e.to_str().ok())
         .map(|s| s.to_string());
-        
+
+        let bits_allocated: Option<u16> = obj
+        .element(tags::BITS_ALLOCATED)
+        .ok()
+        .and_then(|e| e.to_int::<u16>().ok());
+
+        let pixel_representation: Option<u16> = obj
+        .element(tags::PIXEL_REPRESENTATION)
+        .ok()
+        .and_then(|e| e.to_int::<u16>().ok());
+
+        let photometric_interpretation: Option<String> = obj
+        .element(tags::PHOTOMETRIC_INTERPRETATION)
+        .ok()
+        .and_then(|e| e.to_str().ok())
+        .map(|s| s.to_string());
+
         self.meta_data = MetaData {
             patient_id,
             patient_name,
             patient_weight,
+            pixel_representation,
+            bits_allocated,
+            photometric_interpretation,
         };
 
         Ok(())
@@ -235,9 +252,26 @@ impl MyApp {
         Ok(image)
     }
 
-    fn convert_dicom_to_vec(&self, obj: FileDicomObject<InMemDicomObject>) -> Result<Vec<u16>, Box<dyn std::error::Error>> {
+    fn convert_dicom_to_vec(
+        &self,
+        obj: FileDicomObject<InMemDicomObject>
+    ) -> Result<Vec<u16>, Box<dyn std::error::Error>> {
+        //TODO: check the meta data and pick a good option
+
         let decoded = obj.decode_pixel_data()?;
-        let pixels: Vec<u16> = decoded.to_vec()?;
+
+        // we use data to skip lut processing
+        let bytes = decoded.data(); 
+
+        if bytes.len() % 2 != 0 {
+            return Err("Invalid pixel buffer length for u16".into());
+        }
+
+        let pixels: Vec<u16> = bytes
+            .chunks_exact(2)
+            .map(|b| u16::from_le_bytes([b[0], b[1]]))
+            .collect();
+
         Ok(pixels)
     }
 
@@ -260,7 +294,6 @@ impl MyApp {
             let rows: usize = obj.element(tags::ROWS)?.to_int()?;
             let cols: usize = obj.element(tags::COLUMNS)?.to_int()?;
             let image = self.convert_dicom_to_vec(obj)?;
-
             if image.len() != rows * cols {
                 return Err("Pixel buffer size mismatch".into());
             }
