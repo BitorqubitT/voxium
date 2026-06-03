@@ -8,14 +8,13 @@ use crate::dicom::metadata::MetaData;
 use crate::viewer::image_viewer::ViewTransform;
 use crate::data::volume::VolumeCpu;
 use crate::data::image_source::ImageSource;
-use std::sync::Arc;
-use winit::window::Window;
+use crate::gpu::gpu::Gpu;
 use anyhow::Result;
 // TODO: can do use crate::data::VolumeData;
 
 pub struct MyApp {
     source: Option<ImageSource>,
-    gpu: Option<Gpu>,
+    pub gpu: Gpu,
     height: u32,
     image_size: f32,
     zoom_level: i32,
@@ -24,114 +23,12 @@ pub struct MyApp {
     meta_data: MetaData,
 }
 
-impl Default for MyApp {
-    fn default() -> Self {
-
-        Self {
-            source: None,
-            gpu: None,
-            height: 180,
-            image_size: 30.,
-            zoom_level: 100,
-            path: "data/1-1.dcm".into(),
-            viewer: ImageViewer {
-                source: None,
-                transform:  ViewTransform::default(),
-            },
-            meta_data: MetaData {
-                patient_id: None,
-                patient_name: None,
-                patient_weight: None,
-            }
-        }
-    }
-}
-
-// https://sotrh.github.io/learn-wgpu/beginner/tutorial2-surface/
-pub struct Gpu {
-    pub device: wgpu::Device,
-    pub queue: wgpu::Queue,
-    pub surface: wgpu::Surface<'static>,
-    pub config: wgpu::SurfaceConfiguration,
-    pub window: Arc<Window>,
-}
-
-//Use anyhow in case no gpu detection?
-impl Gpu {
-    async fn new(window: Arc<Window>) -> anyhow::Result<Gpu> {
-        let size = window.inner_size();
-
-        // The instance is a handle to our GPU
-        // BackendBit::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            #[cfg(not(target_arch = "wasm32"))]
-            backends: wgpu::Backends::PRIMARY,
-            #[cfg(target_arch = "wasm32")]
-            backends: wgpu::Backends::GL,
-            flags: Default::default(),
-            memory_budget_thresholds: Default::default(),
-            backend_options: Default::default(),
-            display: None,
-        });
-
-        let surface = instance.create_surface(window.clone()).unwrap();
-
-        // select correct gpu
-        let adapter = instance
-            .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::default(),
-                compatible_surface: Some(&surface),
-                force_fallback_adapter: false,
-            })
-            .await?;
-
-        let (device, queue) = adapter
-            .request_device(&wgpu::DeviceDescriptor {
-                label: None,
-                required_features: wgpu::Features::empty(),
-                experimental_features: wgpu::ExperimentalFeatures::disabled(),
-                // WebGL doesn't support all of wgpu's features, so if
-                // we're building for the web we'll have to disable some.
-                required_limits: if cfg!(target_arch = "wasm32") {
-                    wgpu::Limits::downlevel_webgl2_defaults()
-                } else {
-                    wgpu::Limits::default()
-                },
-                memory_hints: Default::default(),
-                trace: wgpu::Trace::Off,
-            })
-            .await?;
-
-        let caps = surface.get_capabilities(&adapter);
-        let surface_format = caps.formats[0];
-
-        Ok(Self {
-            device,
-            queue,
-            surface,
-            config: wgpu::SurfaceConfiguration {
-                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-                format: surface_format,
-                width: size.width,
-                height: size.height,
-                desired_maximum_frame_latency: 2,
-                view_formats: vec![],
-                present_mode: wgpu::PresentMode::Fifo,
-                alpha_mode: wgpu::CompositeAlphaMode::Auto,
-            },
-            window,
-        })
-
-        // ...
-    }
-}
-
 impl MyApp {
 
-    pub fn new() -> Self {
+    pub fn new(gpu: Gpu) -> Self {
         Self {
             source: None,
-            gpu: None,
+            gpu: gpu,
             height: 180,
             image_size: 30.,
             zoom_level: 100,
@@ -144,14 +41,11 @@ impl MyApp {
                 patient_id: None,
                 patient_name: None,
                 patient_weight: None,
+                pixel_representation: None,
+                bits_allocated: None,
+                photometric_interpretation: None,
             }
         }
-    }
-
-    //TODO: other options? Could also set non default withh gpu
-    //TODO: When do we use this? Do we create on app startup or only when needing it?
-    pub fn set_gpu(&mut self, gpu: Gpu) {
-        self.gpu = Some(gpu);
     }
 
     fn determine_file_type(&self) -> &str {
@@ -335,12 +229,7 @@ impl MyApp {
         return Ok(ImageSource::create_volume(volume));
     }
 
-}
-
-impl eframe::App for MyApp {
-
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-
+    pub fn ui(&mut self, ctx: &egui::Context) {
         egui::TopBottomPanel::top("my_top_panel").show(ctx, |ui| {
 
             egui::MenuBar::new().ui(ui, |ui| {
@@ -408,16 +297,10 @@ impl eframe::App for MyApp {
                 //self.viewer.prev_slice(ctx);
             };
             // Here we give the source to viewer and let it decide what to do
-            if let Some(gpu) = &self.gpu {
-                self.viewer.ui(
-                    ui,
-                    self.source.as_ref(),
-                    &gpu.device,
-                    &gpu.queue,
-                );
-            } else {
-                ui.label("(no GPU)");
-            }
+            self.viewer.ui(
+                ui,
+                self.source.as_ref(),
+            );
         });
 
     }

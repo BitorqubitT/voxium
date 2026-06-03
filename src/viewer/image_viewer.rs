@@ -15,7 +15,6 @@ impl Default for ViewTransform {
         }
     }
 }
-
 //TODO: Check how i want to handle the source. At the moment I just use a reference to the source.
 // But what when I load to gpu and start augmenting the image.
 
@@ -28,8 +27,6 @@ impl ImageViewer {
     pub fn ui(&mut self, 
               ui: &mut egui::Ui, 
               source: Option<&ImageSource>, 
-              device: &wgpu::Device,
-              queue: &wgpu::Queue,
               ) {
         
         let source = match source {
@@ -45,10 +42,19 @@ impl ImageViewer {
             }
             ImageSource::Volume(volume) => {
                 println!(" rendering volume image");
-                self.render_volume(ui, volume, &device, &queue);
+                self.render_volume(ui, volume);
             }
         }
-    
+
+
+        let available = ui.available_size();
+        let (rect, response) = ui.allocate_exact_size(
+            available, 
+            egui::Sense::drag(),
+        );
+
+
+
        /* 
         // Zooming
         let scroll = ui.input(|i| i.raw_scroll_delta.y);
@@ -71,7 +77,10 @@ impl ImageViewer {
 
     }
 
-    fn render_image(&mut self, ui: &mut egui::Ui, image: &ImageData) {
+    fn render_image(
+        &mut self, 
+        ui: &mut egui::Ui, 
+        image: &ImageData) {
         // i think i use draw code here?
         let image_size = image.size * self.transform.zoom;
 
@@ -94,13 +103,16 @@ impl ImageViewer {
         );
     }
 
-    fn render_volume(&mut self, ui: &mut egui::Ui, volume: &VolumeData, device: &wgpu::Device, queue: &wgpu::Queue) { 
+    fn render_volume(
+        &mut self, 
+        ui: &mut egui::Ui, 
+        volume: &VolumeData) { 
     
         // this is the full 3d image
-        let _volumgpu = match volume.cpu.as_ref() {
-            Some(cpu) => cpu.to_gpu(device, queue),
-            None => return,
-        };
+        //let _volumgpu = match volume.cpu.as_ref() {
+          //  Some(cpu) => cpu.to_gpu(device, queue),
+           // None => return,
+        //};
 
         ui.label("volume ready on gpu");
 
