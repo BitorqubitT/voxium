@@ -38,6 +38,7 @@ fn main() {
     #[allow(deprecated)]
     event_loop
         .run(move |event, target| {
+
             match event {
                 Event::WindowEvent { event, .. } => {
                     match event {
@@ -51,6 +52,12 @@ fn main() {
 
                         WindowEvent::RedrawRequested => {
                             // render later
+                            match app.gpu.render() {
+                                Ok(_) => {}
+                                Err(_) => {
+                                    // handle error
+                                }
+                            }
                         }
 
                         _ => {}
