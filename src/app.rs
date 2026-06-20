@@ -10,6 +10,7 @@ use crate::data::volume::VolumeCpu;
 use crate::data::image_source::ImageSource;
 use crate::gpu::gpu::Gpu;
 use anyhow::Result;
+use egui_wgpu::{RendererOptions};
 // TODO: can do use crate::data::VolumeData;
 
 pub struct MyApp {
@@ -21,11 +22,35 @@ pub struct MyApp {
     path: PathBuf,
     viewer: ImageViewer,
     meta_data: MetaData,
+    pub egui_ctx: Option<egui::Context>,
+    pub egui_winit: Option<egui_winit::State>,
+    pub egui_renderer: Option<egui_wgpu::Renderer>,
 }
 
 impl MyApp {
 
-    pub fn new(gpu: Gpu) -> Self {
+    pub fn new(gpu: Gpu, window: &winit::window::Window) -> Self {
+        let egui_ctx = egui::Context::default();
+        let egui_state = egui_winit::State::new(
+            egui_ctx.clone(),
+            egui::viewport::ViewportId::ROOT,
+            window,
+            None,
+            None,
+            None,
+        );
+
+        let egui_renderer = egui_wgpu::Renderer::new(
+            &gpu.device,
+            gpu.config.format,
+            RendererOptions {
+                msaa_samples: 1,
+                depth_stencil_format: None,
+                dithering: true,
+                predictable_texture_filtering: false,
+            },
+        );
+
         Self {
             source: None,
             gpu: gpu,
@@ -44,7 +69,10 @@ impl MyApp {
                 pixel_representation: None,
                 bits_allocated: None,
                 photometric_interpretation: None,
-            }
+            },
+            egui_ctx: Some(egui_ctx),
+            egui_winit: Some(egui_state),
+            egui_renderer: Some(egui_renderer),
         }
     }
 

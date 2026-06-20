@@ -8,8 +8,8 @@ dicom = "0.9.0"
 dicom-dump = "0.9.0"
 dicom-object = "0.9.0"
 dicom-pixeldata = { version = "0.9.0", features = ["image"] }
-egui = "0.33.3"
-egui_extras = { version = "0.33.3", features = ["image", "all_loaders"]}
+egui = "0.34.3"
+egui_extras = { version = "0.34.3", features = ["image", "all_loaders"]}
 env_logger = "0.11.9"
 image = "0.25.9"
 ndarray = "0.17.2"
