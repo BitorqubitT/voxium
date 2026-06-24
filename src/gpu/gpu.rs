@@ -15,23 +15,21 @@ impl Gpu {
             backends: wgpu::Backends::PRIMARY,
             flags: wgpu::InstanceFlags::default(),
             backend_options: wgpu::BackendOptions::default(),
-            // Fixed: Use Default::default() to avoid missing InstanceDisplay type issues
+            //Use Default::default() to avoid missing InstanceDisplay type issues
             display: Default::default(),
             memory_budget_thresholds: wgpu::MemoryBudgetThresholds::default(),
         });
 
-        // Target the window surface safely
         let surface = instance.create_surface(window.clone())?;
 
         // block_on safely executes the async calls during the one-time startup sequence
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::HighPerformance, // Ideal for 3D DICOM computing
+            power_preference: wgpu::PowerPreference::HighPerformance,
             compatible_surface: Some(&surface),
             force_fallback_adapter: false,
         }))
         .map_err(|e| anyhow::anyhow!("No compatible graphics adapter found: {}", e))?;
 
-        // Fixed: Removed the unexpected second argument from request_device
         let (device, queue) = pollster::block_on(adapter.request_device(
             &wgpu::DeviceDescriptor {
                 label: Some("My Custom Compute/Render Device"),

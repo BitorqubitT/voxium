@@ -257,6 +257,7 @@ impl MyApp {
             depth: depth as usize,
         };
         //todo; add ok
+        println!("laoded that file");
         return Ok(ImageSource::create_volume(volume));
     }
 
@@ -272,7 +273,7 @@ impl MyApp {
                         ui.close();
                     }
                 });
-                ui.menu_button("File", |ui| {
+                ui.menu_button("More files", |ui| {
                     if ui.button("Button 2 open directory").clicked() {
                         self.path = r"D:\dataset\manifest-1771003632643\PSMA-PET-CT-Lesions\PSMA_a96814a79aa26c8f\08-16-2005-NA-PETCT whole-body PSMA-53100\4.000000-CT-10240".into();
                         if let Err(e) = self.file_opener(ctx) {

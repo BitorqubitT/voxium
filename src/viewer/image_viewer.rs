@@ -37,11 +37,9 @@ impl ImageViewer {
         match source {
             ImageSource::Single(single) => {
                 //TODO: check if we want to keep calling this. Or is there a better way
-                println!(" rendering single image");
                 self.render_image(ui, &single);
             }
             ImageSource::Volume(volume) => {
-                println!(" rendering volume image");
                 self.render_volume(ui, volume);
             }
         }
