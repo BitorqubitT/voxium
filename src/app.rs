@@ -261,7 +261,7 @@ impl MyApp {
     }
 
     pub fn ui(&mut self, ctx: &egui::Context) {
-        egui::TopBottomPanel::top("my_top_panel").show(ctx, |ui| {
+        egui::Panel::top("my_top_panel").show(ctx, |ui| {
 
             egui::MenuBar::new().ui(ui, |ui| {
                 ui.menu_button("File", |ui| {
@@ -296,7 +296,7 @@ impl MyApp {
             });
         }); 
 
-        egui::SidePanel::left("my_side_panel").show(ctx, |ui| {
+        egui::Panel::left("my_side_panel").show(ctx, |ui| {
             ui.heading("Left panel");
             ui.label("Add more widgets here.");
             ui.add(egui::Slider::new(&mut self.height, 140..=220).text("height"));
