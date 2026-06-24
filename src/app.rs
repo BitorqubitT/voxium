@@ -22,9 +22,9 @@ pub struct MyApp {
     path: PathBuf,
     viewer: ImageViewer,
     meta_data: MetaData,
-    pub egui_ctx: Option<egui::Context>,
-    pub egui_winit: Option<egui_winit::State>,
-    pub egui_renderer: Option<egui_wgpu::Renderer>,
+    pub egui_ctx: egui::Context,
+    pub egui_winit: egui_winit::State,
+    pub egui_renderer: egui_wgpu::Renderer,
 }
 
 impl MyApp {
@@ -70,9 +70,9 @@ impl MyApp {
                 bits_allocated: None,
                 photometric_interpretation: None,
             },
-            egui_ctx: Some(egui_ctx),
-            egui_winit: Some(egui_state),
-            egui_renderer: Some(egui_renderer),
+            egui_ctx: egui_ctx,
+            egui_winit: egui_state,
+            egui_renderer: egui_renderer,
         }
     }
 
@@ -167,7 +167,10 @@ impl MyApp {
         Ok(())
     }
 
-    fn convert_dicom_to_image(&self, obj: FileDicomObject<InMemDicomObject>) -> Result<DynamicImage, Box<dyn std::error::Error>> {
+    fn convert_dicom_to_image(
+        &self, 
+        obj: FileDicomObject<InMemDicomObject>
+    ) -> Result<DynamicImage, Box<dyn std::error::Error>> {
         let decoded = obj.decode_pixel_data()?;
         // Could remove param, because we are sure its just one image
         let image = decoded.to_dynamic_image(0)?; 

@@ -77,61 +77,25 @@ impl Gpu {
     }
 
     // Later split ui render and dicom render
-    pub fn render(&mut self) -> Result<(), ()> {
+    pub fn render(&mut self) -> Option<wgpu::SurfaceTexture> {
         let output = self.surface.get_current_texture();
 
-        let frame = match output {
-            wgpu::CurrentSurfaceTexture::Success(frame) => frame,
-            wgpu::CurrentSurfaceTexture::Suboptimal(frame) => frame,
-            wgpu::CurrentSurfaceTexture::Timeout => return Ok(()),
-            wgpu::CurrentSurfaceTexture::Occluded => return Ok(()),
-            wgpu::CurrentSurfaceTexture::Outdated => return Ok(()),
-            wgpu::CurrentSurfaceTexture::Lost => return Ok(()),
-            wgpu::CurrentSurfaceTexture::Validation => return Ok(()),
-        };
-
-        let view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
-
-        let mut encoder =
-            self.device
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("Render Encoder"),
-                });
-
-        {
-            let _render_pass =
-                encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                    label: Some("Clear Pass"),
-                    color_attachments: &[Some(
-                        wgpu::RenderPassColorAttachment {
-                            view: &view,
-                            depth_slice: None,
-                            resolve_target: None,
-                            ops: wgpu::Operations {
-                                load: wgpu::LoadOp::Clear(
-                                    wgpu::Color {
-                                        r: 0.0,
-                                        g: 0.2,
-                                        b: 0.8,
-                                        a: 1.0,
-                                    },
-                                ),
-                                store: wgpu::StoreOp::Store,
-                            },
-                        },
-                    )],
-                    depth_stencil_attachment: None,
-                    occlusion_query_set: None,
-                    timestamp_writes: None,
-                    multiview_mask: None,
-                });
+        match output {
+            wgpu::CurrentSurfaceTexture::Success(frame) => Some(frame),
+            wgpu::CurrentSurfaceTexture::Suboptimal(frame) => {
+                self.surface.configure(&self.device, &self.config);
+                Some(frame)
+            }
+            wgpu::CurrentSurfaceTexture::Outdated | wgpu::CurrentSurfaceTexture::Lost => {
+                self.surface.configure(&self.device, &self.config);
+                None
+            }
+            wgpu::CurrentSurfaceTexture::Timeout 
+            | wgpu::CurrentSurfaceTexture::Occluded 
+            | wgpu::CurrentSurfaceTexture::Validation => {
+                None
+            }
         }
-
-        self.queue.submit(Some(encoder.finish()));
-
-        frame.present();
-
-        Ok(())
     }
 
 
