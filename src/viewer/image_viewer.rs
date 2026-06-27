@@ -1,6 +1,9 @@
+use egui::epaint::textures;
+
 use crate::data::image_source::ImageSource;
 use crate::data::image::ImageData;
 use crate::data::image_source::VolumeData;
+use crate::data::volume::VolumeGpu;
 
 pub struct ViewTransform {
     pub zoom: f32,
@@ -15,19 +18,25 @@ impl Default for ViewTransform {
         }
     }
 }
-//TODO: Check how i want to handle the source. At the moment I just use a reference to the source.
-// But what when I load to gpu and start augmenting the image.
 
+// Want to render to a output canvas in imageviewer. (the we give id and paint in egui i think, check this)
 pub struct ImageViewer {
-    pub source: Option<ImageSource>,
+    // TODO: Remove this, because it will keep giving ownership problems. App owns source.
+    //pub source: Option<ImageSource>,
     pub transform: ViewTransform,
+
+    pub render_target: Option<wgpu::Texture>,
+    pub egui_texture_id: Option<egui::TextureId>,
+    pub current_view_size: egui::Vec2,
 }
 
 impl ImageViewer {
     pub fn ui(&mut self,
         //maybe remove option, we only call this when there is a source? 
               ui: &mut egui::Ui, 
-              source: Option<&ImageSource>, 
+              source: Option<&ImageSource>,
+              egui_renderer: &mut egui_wgpu::Renderer,
+              device: &wgpu::Device, 
               ) {
         
         let source = match source {
@@ -40,39 +49,26 @@ impl ImageViewer {
                 //TODO: check if we want to keep calling this. Or is there a better way
                 self.render_image(ui, &single);
             }
+            // TODO: What do i want here? Just check if volume.gpu is present and then run render_volume using self.
             ImageSource::Volume(volume) => {
-                self.render_volume(ui, volume);
+                if let Some(ref volume_gpu) = volume.gpu {
+                    self.render_volume(ui, 
+                                    volume_gpu, 
+                                    egui_renderer, 
+                                    device
+                                );
+                } else {
+                    // TODO: add some code to fill center
+                    println!("volume.gpu is empty :O");
+                }
             }
         }
-
 
         let available = ui.available_size();
         let (rect, response) = ui.allocate_exact_size(
             available, 
             egui::Sense::drag(),
         );
-
-
-
-       /* 
-        // Zooming
-        let scroll = ui.input(|i| i.raw_scroll_delta.y);
-
-        if scroll != 0.0 {
-            if let Some(mouse_pos) = ui.input(|i| i.pointer.hover_pos()) {
-                let old_zoom = self.transform.zoom;
-
-                let zoom_factor = (1.0 + scroll * 0.001).clamp(0.1, 10.0);
-                self.transform.zoom *= zoom_factor;
-
-                let delta_zoom = self.transform.zoom / old_zoom;
-
-        // TODO: Doesnt feel intuitive yet, maybe change offset calc
-                self.transform.offset = (self.transform.offset - mouse_pos.to_vec2()) * delta_zoom
-                        + mouse_pos.to_vec2();
-            }
-        }
-        */
 
     }
 
@@ -105,20 +101,41 @@ impl ImageViewer {
     fn render_volume(
         &mut self, 
         ui: &mut egui::Ui, 
-        volume: &VolumeData) { 
+        volume: &VolumeGpu,
+        egui_renderer: &mut egui_wgpu::Renderer,
+        device: &wgpu::Device,
+    ) { 
     
-        // this is the full 3d image
-        //let _volumgpu = match volume.cpu.as_ref() {
-          //  Some(cpu) => cpu.to_gpu(device, queue),
-           // None => return,
-        //};
-
         ui.label("volume ready on gpu");
+        let available_size = ui.available_size();
+        self.current_view_size = available_size;
 
-        // First just render one slice as image using gpu
+        // Register the canvas texture with egui
+        if self.egui_texture_id.is_none() {
+            // Give access to app.egui_renderei
+            let tex_id = egui_renderer.register_native_texture(
+                device, 
+                &volume.view, 
+                wgpu::FilterMode::Linear, // TODO: read this: https://gpuweb.github.io/gpuweb/#enumdef-gpumipmapfiltermode
+            );
+            self.egui_texture_id = Some(tex_id);
+        }
 
-        // I want option to just have a slice of the volume and to render the full 3d and display them next to eachother
+        ui.vertical(|ui| {
+            ui.label("Rendering via offscreen GPU Texture:");
 
+            // Rendered 3D volume slice
+            if let Some(tex_id) = self.egui_texture_id {
+                let image_widget = egui::Image::from_texture((tex_id, available_size))
+                    .sense(egui::Sense::drag());
+                
+                let response = ui.add(image_widget);
+                // TODO: Interactions on the view for rotating etc
+                if response.dragged() {
+                    // self.handle_rotation(some delta);
+                }
+            }
+        });
     }
 
 }
