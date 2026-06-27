@@ -24,7 +24,8 @@ pub struct ImageViewer {
 }
 
 impl ImageViewer {
-    pub fn ui(&mut self, 
+    pub fn ui(&mut self,
+        //maybe remove option, we only call this when there is a source? 
               ui: &mut egui::Ui, 
               source: Option<&ImageSource>, 
               ) {

@@ -59,7 +59,6 @@ event_loop
                     }
 
                     WindowEvent::RedrawRequested => {
-
                         //TODO: move most of this code to gpu/rs
                         let frame = match app.gpu.render() {
                             Some(frame) => frame,

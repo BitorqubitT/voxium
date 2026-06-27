@@ -149,17 +149,25 @@ impl MyApp {
     fn file_opener(&mut self, ctx: &egui::Context) -> Result<(), Box<dyn std::error::Error>> {
         match self.determine_file_type(){
             "dcm" => {
+                // TODO: do i want to keep this?
                 let obj = open_file(&self.path)?;
-                //dump_file(&obj)?;
                 let image = self.convert_dicom_to_image(obj)?;
-                // TODO: Should return this imagesource and put it in app 
                 self.source = Some(ImageSource::create_single(ctx, image));
                 //TODO: Load it to viewer here
             }
             "dir" => {
                 self.get_meta_data()?;
-                self.source = Some(self.load_directory()?);
-                //TODO: Load it to viewer here
+                let mut image_source = self.load_directory()?;
+                
+                if let ImageSource::Volume(ref mut volume_data) = image_source {
+                    if let Some(ref cpu_data) = volume_data.cpu {
+                        let gpu_vol = cpu_data.to_gpu(&self.gpu.device, &self.gpu.queue);
+                        volume_data.gpu = Some(gpu_vol);
+                    }
+                }
+                
+                self.source = Some(image_source);
+                println!("we move it to the gpu");
             }
 
             _ => return Err("Unsupported file type".into()),
@@ -328,7 +336,7 @@ impl MyApp {
             if ui.input(|i|i.key_pressed(egui::Key::P)) {
                 //self.viewer.prev_slice(ctx);
             };
-            // Here we give the source to viewer and let it decide what to do
+            //TODO: Change this, we dont load in ui, we just render
             self.viewer.ui(
                 ui,
                 self.source.as_ref(),
