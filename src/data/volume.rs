@@ -21,7 +21,8 @@ impl VolumeCpu {
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D3,
-            format: wgpu::TextureFormat::R16Uint,
+            // TODO: egui_wgpu expects R16float
+            format: wgpu::TextureFormat::R16Float,
             //TODO: https://gpuweb.github.io/gpuweb/#typedefdef-gputextureusageflags check
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             view_formats: &[]

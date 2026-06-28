@@ -43,6 +43,8 @@ impl ImageViewer {
             Some(src) => src,
             None => return,
         };
+        
+        let available_size = ui.available_size();
 
         match source {
             ImageSource::Single(single) => {
@@ -53,22 +55,23 @@ impl ImageViewer {
             ImageSource::Volume(volume) => {
                 if let Some(ref volume_gpu) = volume.gpu {
                     self.render_volume(ui, 
-                                    volume_gpu, 
-                                    egui_renderer, 
-                                    device
-                                );
+                                       volume_gpu, 
+                                       egui_renderer, 
+                                       device
+                    );
                 } else {
                     // TODO: add some code to fill center
-                    println!("volume.gpu is empty :O");
+                    let (rect, _) = ui.allocate_exact_size(available_size, egui::Sense::hover());
+                    ui.painter().text(
+                        rect.center(),
+                        egui::Align2::CENTER_CENTER,
+                        "Loading volume data",
+                        egui::FontId::proportional(16.0),
+                        ui.visuals().weak_text_color(),
+                    );
                 }
             }
         }
-
-        let available = ui.available_size();
-        let (rect, response) = ui.allocate_exact_size(
-            available, 
-            egui::Sense::drag(),
-        );
 
     }
 
@@ -107,6 +110,7 @@ impl ImageViewer {
     ) { 
     
         ui.label("volume ready on gpu");
+        // Does this work? does available_size look at the window or not?
         let available_size = ui.available_size();
         self.current_view_size = available_size;
 

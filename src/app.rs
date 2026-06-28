@@ -1,5 +1,6 @@
 use dicom_object::{FileDicomObject, InMemDicomObject, open_file};
 use dicom_pixeldata::{PixelDecoder};
+use egui::Vec2;
 use image::DynamicImage;
 use dicom::dictionary_std::tags;
 use std::{fs, path::PathBuf};
@@ -59,8 +60,11 @@ impl MyApp {
             zoom_level: 100,
             path: "data/1-1.dcm".into(),
             viewer: ImageViewer {
-                source: None,
                 transform:  ViewTransform::default(),
+                render_target: None,
+                egui_texture_id: None,
+                //TODO: Doesnt this mess anything up?
+                current_view_size: egui::Vec2::ZERO,
             },
             meta_data: MetaData {
                 patient_id: None,
@@ -340,6 +344,8 @@ impl MyApp {
             self.viewer.ui(
                 ui,
                 self.source.as_ref(),
+                &mut self.egui_renderer,
+                &self.gpu.device,
             );
         });
 
