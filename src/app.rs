@@ -66,17 +66,11 @@ impl MyApp {
                 //TODO: Doesnt this mess anything up?
                 current_view_size: egui::Vec2::ZERO,
             },
-            meta_data: MetaData {
-                patient_id: None,
-                patient_name: None,
-                patient_weight: None,
-                pixel_representation: None,
-                bits_allocated: None,
-                photometric_interpretation: None,
-            },
+            meta_data: MetaData::default(),
             egui_ctx: egui_ctx,
             egui_winit: egui_state,
             egui_renderer: egui_renderer,
+
         }
     }
 
@@ -268,8 +262,6 @@ impl MyApp {
             height: height as usize,
             depth: depth as usize,
         };
-        //todo; add ok
-        println!("laoded that file");
         return Ok(ImageSource::create_volume(volume));
     }
 
@@ -346,6 +338,7 @@ impl MyApp {
                 self.source.as_ref(),
                 &mut self.egui_renderer,
                 &self.gpu.device,
+                &self.gpu.queue, // TODO: remove this after test
             );
         });
 
