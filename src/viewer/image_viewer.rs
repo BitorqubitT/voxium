@@ -197,7 +197,6 @@ impl ImageViewer {
         &mut self, 
         ui: &mut egui::Ui, 
         image: &ImageData) {
-        // i think i use draw code here?
         let image_size = image.size * self.transform.zoom;
 
         let available = ui.available_size();
@@ -420,7 +419,6 @@ impl ImageViewer {
         volume_gpu: &VolumeGpu,
     ) {
 
-        // --- QUICK TEST: Copy 3D front slice to 2D canvas ---
         if let Some(ref target) = self.render_target {
             let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("volume_slice_copy_encoder"),

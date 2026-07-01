@@ -80,21 +80,3 @@ pub struct VolumeGpu {
     pub view: wgpu::TextureView,
     pub sampler: wgpu::Sampler,
 }
-
-impl VolumeGpu {
-    pub fn get_front_slice_view(&self) -> wgpu::TextureView {
-        // we use this as a test
-        println!("adihwoidnwd");
-        self.texture.create_view(&wgpu::TextureViewDescriptor {
-            label: Some("dicom_front_2d_slice_view"),
-            format: Some(wgpu::TextureFormat::R16Float),
-            usage: None,
-            dimension: Some(wgpu::TextureViewDimension::D2), 
-            base_array_layer: 0, // 0 is the very front slice
-            array_layer_count: Some(1),
-            base_mip_level: 0,
-            mip_level_count: Some(1),
-            aspect: wgpu::TextureAspect::All,
-        })
-    }
-}
