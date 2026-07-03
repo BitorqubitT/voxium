@@ -65,6 +65,7 @@ impl MyApp {
                 egui_texture_id: None,
                 //TODO: Doesnt this mess anything up?
                 current_view_size: egui::Vec2::ZERO,
+                current_slice_depth: 0.0,
             },
             meta_data: MetaData::default(),
             egui_ctx: egui_ctx,
@@ -328,6 +329,7 @@ impl MyApp {
             if ui.input(|i|i.key_pressed(egui::Key::N)) {
                 // TODO: eventually add these methods again
                 //self.viewer.next_slice(ctx);
+
             };
             if ui.input(|i|i.key_pressed(egui::Key::P)) {
                 //self.viewer.prev_slice(ctx);
@@ -337,8 +339,7 @@ impl MyApp {
                 ui,
                 self.source.as_ref(),
                 &mut self.egui_renderer,
-                &self.gpu.device,
-                &self.gpu.queue, // TODO: remove this after test
+                &self.gpu,
             );
         });
 
