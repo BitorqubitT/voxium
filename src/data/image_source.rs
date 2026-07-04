@@ -16,13 +16,12 @@ pub struct VolumeData {
 }
 
 impl ImageSource {
-
     pub fn create_single(ctx: &egui::Context, image: DynamicImage) -> Self {
         // Dont think i need clone here
         let new_image = image.clone();
         let texture = ImageData::upload_texture(ctx, new_image);
         let size = texture.size_vec2();
-        ImageSource::Single(ImageData{
+        ImageSource::Single(ImageData {
             texture: texture,
             size: size,
         })
@@ -36,7 +35,4 @@ impl ImageSource {
             current_slice: 0,
         })
     }
-
 }
-
-

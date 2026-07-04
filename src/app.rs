@@ -1,17 +1,17 @@
-use dicom_object::{FileDicomObject, InMemDicomObject, open_file};
-use dicom_pixeldata::{PixelDecoder};
-use egui::Vec2;
-use image::DynamicImage;
-use dicom::dictionary_std::tags;
-use std::{fs, path::PathBuf};
-use crate::viewer::image_viewer::ImageViewer;
-use crate::dicom::metadata::MetaData;
-use crate::viewer::image_viewer::ViewTransform;
-use crate::data::volume::VolumeCpu;
 use crate::data::image_source::ImageSource;
+use crate::data::volume::VolumeCpu;
+use crate::dicom::metadata::MetaData;
 use crate::gpu::gpu::Gpu;
+use crate::viewer::image_viewer::ImageViewer;
+use crate::viewer::image_viewer::ViewTransform;
 use anyhow::Result;
-use egui_wgpu::{RendererOptions};
+use dicom::dictionary_std::tags;
+use dicom_object::{open_file, FileDicomObject, InMemDicomObject};
+use dicom_pixeldata::PixelDecoder;
+use egui::Vec2;
+use egui_wgpu::RendererOptions;
+use image::DynamicImage;
+use std::{fs, path::PathBuf};
 // TODO: can do use crate::data::VolumeData;
 
 pub struct MyApp {
@@ -29,7 +29,6 @@ pub struct MyApp {
 }
 
 impl MyApp {
-
     pub fn new(gpu: Gpu, window: &winit::window::Window) -> Self {
         let egui_ctx = egui::Context::default();
         let egui_state = egui_winit::State::new(
@@ -60,7 +59,7 @@ impl MyApp {
             zoom_level: 100,
             path: "data/1-1.dcm".into(),
             viewer: ImageViewer {
-                transform:  ViewTransform::default(),
+                transform: ViewTransform::default(),
                 render_target: None,
                 egui_texture_id: None,
                 //TODO: Doesnt this mess anything up?
@@ -71,7 +70,6 @@ impl MyApp {
             egui_ctx: egui_ctx,
             egui_winit: egui_state,
             egui_renderer: egui_renderer,
-
         }
     }
 
@@ -79,13 +77,16 @@ impl MyApp {
         if self.path.is_dir() {
             "dir"
         } else {
-            self.path.extension().and_then(|ext| ext.to_str()).unwrap_or("")
+            self.path
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .unwrap_or("")
         }
     }
 
-    fn get_meta_data(&mut self) -> Result<(), Box<dyn std::error::Error>>{
+    fn get_meta_data(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         // TODO: optimise later, keep repeating the check type part
-        let obj = match self.determine_file_type(){
+        let obj = match self.determine_file_type() {
             "dcm" => open_file(&self.path)?,
             "dir" => {
                 let entry = fs::read_dir(&self.path)?
@@ -99,38 +100,38 @@ impl MyApp {
         };
 
         let patient_id = obj
-        .element(tags::IMAGE_POSITION_PATIENT)
-        .ok()
-        .and_then(|e| e.to_str().ok())
-        .map(|s| s.to_string());
-        
+            .element(tags::IMAGE_POSITION_PATIENT)
+            .ok()
+            .and_then(|e| e.to_str().ok())
+            .map(|s| s.to_string());
+
         let patient_name = obj
-        .element(tags::PATIENT_NAME)
-        .ok()
-        .and_then(|e| e.to_str().ok())
-        .map(|s| s.to_string());
-        
+            .element(tags::PATIENT_NAME)
+            .ok()
+            .and_then(|e| e.to_str().ok())
+            .map(|s| s.to_string());
+
         let patient_weight = obj
-        .element(tags::PATIENT_WEIGHT)
-        .ok()
-        .and_then(|e| e.to_str().ok())
-        .map(|s| s.to_string());
+            .element(tags::PATIENT_WEIGHT)
+            .ok()
+            .and_then(|e| e.to_str().ok())
+            .map(|s| s.to_string());
 
         let bits_allocated: Option<u16> = obj
-        .element(tags::BITS_ALLOCATED)
-        .ok()
-        .and_then(|e| e.to_int::<u16>().ok());
+            .element(tags::BITS_ALLOCATED)
+            .ok()
+            .and_then(|e| e.to_int::<u16>().ok());
 
         let pixel_representation: Option<u16> = obj
-        .element(tags::PIXEL_REPRESENTATION)
-        .ok()
-        .and_then(|e| e.to_int::<u16>().ok());
+            .element(tags::PIXEL_REPRESENTATION)
+            .ok()
+            .and_then(|e| e.to_int::<u16>().ok());
 
         let photometric_interpretation: Option<String> = obj
-        .element(tags::PHOTOMETRIC_INTERPRETATION)
-        .ok()
-        .and_then(|e| e.to_str().ok())
-        .map(|s| s.to_string());
+            .element(tags::PHOTOMETRIC_INTERPRETATION)
+            .ok()
+            .and_then(|e| e.to_str().ok())
+            .map(|s| s.to_string());
 
         self.meta_data = MetaData {
             patient_id,
@@ -142,11 +143,10 @@ impl MyApp {
         };
 
         Ok(())
-
     }
 
     fn file_opener(&mut self, ctx: &egui::Context) -> Result<(), Box<dyn std::error::Error>> {
-        match self.determine_file_type(){
+        match self.determine_file_type() {
             "dcm" => {
                 // TODO: do i want to keep this?
                 let obj = open_file(&self.path)?;
@@ -157,43 +157,43 @@ impl MyApp {
             "dir" => {
                 self.get_meta_data()?;
                 let mut image_source = self.load_directory()?;
-                
+
                 if let ImageSource::Volume(ref mut volume_data) = image_source {
                     if let Some(ref cpu_data) = volume_data.cpu {
                         let gpu_vol = cpu_data.to_gpu(&self.gpu.device, &self.gpu.queue);
                         volume_data.gpu = Some(gpu_vol);
                     }
                 }
-                
+
                 self.source = Some(image_source);
                 println!("we move it to the gpu");
             }
 
             _ => return Err("Unsupported file type".into()),
-        }; 
+        };
         Ok(())
     }
 
     fn convert_dicom_to_image(
-        &self, 
-        obj: FileDicomObject<InMemDicomObject>
+        &self,
+        obj: FileDicomObject<InMemDicomObject>,
     ) -> Result<DynamicImage, Box<dyn std::error::Error>> {
         let decoded = obj.decode_pixel_data()?;
         // Could remove param, because we are sure its just one image
-        let image = decoded.to_dynamic_image(0)?; 
+        let image = decoded.to_dynamic_image(0)?;
         Ok(image)
     }
 
     fn convert_dicom_to_vec(
         &self,
-        obj: FileDicomObject<InMemDicomObject>
+        obj: FileDicomObject<InMemDicomObject>,
     ) -> Result<Vec<u16>, Box<dyn std::error::Error>> {
         //TODO: check the meta data and pick a good option
 
         let decoded = obj.decode_pixel_data()?;
 
         // we use data to skip lut processing
-        let bytes = decoded.data(); 
+        let bytes = decoded.data();
 
         if bytes.len() % 2 != 0 {
             return Err("Invalid pixel buffer length for u16".into());
@@ -215,13 +215,11 @@ impl MyApp {
         let mut expected_shape: Option<(usize, usize)> = None;
 
         //TODO: Check if tags are present and use the present one to order
-        for file_name in fs::read_dir(&self.path)?.flatten(){
+        for file_name in fs::read_dir(&self.path)?.flatten() {
             let obj = open_file(file_name.path())?;
 
             //let instance_number = obj.element(tags::INSTANCE_NUMBER)?.to_str()?.to_string();
-            let instance_number: i32 = obj
-            .element(tags::INSTANCE_NUMBER)?
-            .to_int()?; // important fix
+            let instance_number: i32 = obj.element(tags::INSTANCE_NUMBER)?.to_int()?; // important fix
 
             let rows: usize = obj.element(tags::ROWS)?.to_int()?;
             let cols: usize = obj.element(tags::COLUMNS)?.to_int()?;
@@ -235,29 +233,29 @@ impl MyApp {
                     return Err(format!(
                         "Mismatch shape: expected {} and {}. got {} and {}",
                         expected_rows, rows, expected_cols, cols
-                    ).into());
+                    )
+                    .into());
                 }
             } else {
                 expected_shape = Some((rows, cols));
             }
 
             id_and_images.push((instance_number, image));
-
         }
 
         // correct numeric sort
         id_and_images.sort_by(|a, b| a.0.cmp(&b.0));
 
         let depth = id_and_images.len();
-        let (height, width)  = expected_shape.ok_or("no image")?;
+        let (height, width) = expected_shape.ok_or("no image")?;
 
         let mut volume_data = Vec::new();
-        for (_, image) in id_and_images{
+        for (_, image) in id_and_images {
             volume_data.extend(image);
         }
-    
+
         // TODO: Should loading be used in this method? or put it in file opener
-        let volume = VolumeCpu{
+        let volume = VolumeCpu {
             data: volume_data,
             width: width as usize,
             height: height as usize,
@@ -300,7 +298,7 @@ impl MyApp {
                     });
                 });
             });
-        }); 
+        });
 
         egui::Panel::left("my_side_panel").show(ctx, |ui| {
             ui.heading("Left panel");
@@ -326,22 +324,16 @@ impl MyApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("My dicom viewer");
 
-            if ui.input(|i|i.key_pressed(egui::Key::N)) {
+            if ui.input(|i| i.key_pressed(egui::Key::N)) {
                 // TODO: eventually add these methods again
                 //self.viewer.next_slice(ctx);
-
             };
-            if ui.input(|i|i.key_pressed(egui::Key::P)) {
+            if ui.input(|i| i.key_pressed(egui::Key::P)) {
                 //self.viewer.prev_slice(ctx);
             };
             //TODO: Change this, we dont load in ui, we just render
-            self.viewer.ui(
-                ui,
-                self.source.as_ref(),
-                &mut self.egui_renderer,
-                &self.gpu,
-            );
+            self.viewer
+                .ui(ui, self.source.as_ref(), &mut self.egui_renderer, &self.gpu);
         });
-
     }
 }

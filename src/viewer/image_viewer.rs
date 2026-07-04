@@ -1,7 +1,7 @@
 use egui::epaint::textures;
 
-use crate::data::image_source::ImageSource;
 use crate::data::image::ImageData;
+use crate::data::image_source::ImageSource;
 use crate::data::image_source::VolumeData;
 use crate::data::volume::VolumeGpu;
 use crate::gpu::gpu::Gpu;
@@ -42,14 +42,14 @@ pub struct ImageViewer {
 }
 
 impl ImageViewer {
-    pub fn ui(&mut self,
-        //maybe remove option, we only call this when there is a source? 
-              ui: &mut egui::Ui, 
-              source: Option<&ImageSource>,
-              egui_renderer: &mut egui_wgpu::Renderer,
-              gpu: &Gpu,
-              ) {
-        
+    pub fn ui(
+        &mut self,
+        //maybe remove option, we only call this when there is a source?
+        ui: &mut egui::Ui,
+        source: Option<&ImageSource>,
+        egui_renderer: &mut egui_wgpu::Renderer,
+        gpu: &Gpu,
+    ) {
         let source = match source {
             Some(src) => src,
             None => return,
@@ -64,30 +64,24 @@ impl ImageViewer {
             // TODO: What do i want here? Just check if volume.gpu is present and then run render_volume using self.
             ImageSource::Volume(volume) => {
                 if let Some(ref volume_gpu) = volume.gpu {
-
                     self.recreate_canvas(
-                        &gpu.device, 
-                 available_size.x as u32, 
-                available_size.y as u32);
+                        &gpu.device,
+                        available_size.x as u32,
+                        available_size.y as u32,
+                    );
 
                     // Need clone, old situation: pass ref to self with an exlsuive mutable access. wont work
                     // image is 2d so cheap i guess
-                    let canvas_view = self.render_target
+                    let canvas_view = self
+                        .render_target
                         .as_ref()
                         .map(|target| target.view.clone());
-
 
                     // Give internal 2d view to renderer
                     // Dont actually need to give volume_gpu
                     if let Some(view) = canvas_view {
-                        self.render_volume(
-                            ui, 
-                            egui_renderer, 
-                            gpu,
-                            volume_gpu,
-                        );
+                        self.render_volume(ui, egui_renderer, gpu, volume_gpu);
                     }
-
                 } else {
                     // TODO: add some code to fill center
                     let (rect, _) = ui.allocate_exact_size(available_size, egui::Sense::hover());
@@ -101,13 +95,12 @@ impl ImageViewer {
                 }
             }
         }
-
     }
 
     pub fn recreate_canvas(&mut self, device: &wgpu::Device, width: u32, height: u32) {
         if let Some(ref target) = self.render_target {
             if target.width == width && target.height == height {
-                return; 
+                return;
             }
         }
 
@@ -123,7 +116,7 @@ impl ImageViewer {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             // Diff type maybe?
-            format: wgpu::TextureFormat::Rgba8UnormSrgb, 
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
             view_formats: &[],
         });
@@ -142,10 +135,7 @@ impl ImageViewer {
         self.egui_texture_id = None;
     }
 
-    fn render_image(
-        &mut self, 
-        ui: &mut egui::Ui, 
-        image: &ImageData) {
+    fn render_image(&mut self, ui: &mut egui::Ui, image: &ImageData) {
         let image_size = image.size * self.transform.zoom;
 
         let available = ui.available_size();
@@ -159,21 +149,18 @@ impl ImageViewer {
         ui.painter().image(
             image.texture.id(),
             image_rect,
-            egui::Rect::from_min_max(
-                egui::Pos2::new(0.0, 0.0),
-                egui::Pos2::new(1.0, 1.0),
-            ),
+            egui::Rect::from_min_max(egui::Pos2::new(0.0, 0.0), egui::Pos2::new(1.0, 1.0)),
             egui::Color32::WHITE,
         );
     }
 
     pub fn render_volume(
-        &mut self, 
-        ui: &mut egui::Ui, 
+        &mut self,
+        ui: &mut egui::Ui,
         egui_renderer: &mut egui_wgpu::Renderer,
         gpu: &Gpu,
         volume_gpu: &VolumeGpu,
-    ) { 
+    ) {
         ui.label("volume ready on gpu");
         let available_size = ui.available_size();
         self.current_view_size = available_size;
@@ -187,12 +174,14 @@ impl ImageViewer {
             use wgpu::util::DeviceExt;
             println!("Rendering slice at depth: {}", self.current_slice_depth);
             let settings_data = [self.current_slice_depth, 50.0f32];
-            
-            let settings_buffer = gpu.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("slice_settings_uniform"),
-                contents: bytemuck::cast_slice(&settings_data),
-                usage: wgpu::BufferUsages::UNIFORM,
-            });
+
+            let settings_buffer =
+                gpu.device
+                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some("slice_settings_uniform"),
+                        contents: bytemuck::cast_slice(&settings_data),
+                        usage: wgpu::BufferUsages::UNIFORM,
+                    });
 
             // 2. Build the lightweight frame BindGroup linking to the cached layout
             let bind_group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -215,9 +204,11 @@ impl ImageViewer {
             });
 
             // 3. Execute the RenderPass using gpu.device and encoder
-            let mut encoder = gpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("volume_slice_render_encoder"),
-            });
+            let mut encoder = gpu
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("volume_slice_render_encoder"),
+                });
 
             {
                 let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -249,7 +240,7 @@ impl ImageViewer {
         if self.egui_texture_id.is_none() {
             if let Some(ref target) = self.render_target {
                 let tex_id = egui_renderer.register_native_texture(
-                    &gpu.device, 
+                    &gpu.device,
                     &target.view, // Use the real rendering destination
                     wgpu::FilterMode::Linear,
                 );
@@ -261,13 +252,11 @@ impl ImageViewer {
             ui.label("Rendering via offscreen GPU Texture:");
 
             if let Some(tex_id) = self.egui_texture_id {
-                let image_widget = egui::Image::from_texture((tex_id, available_size))
-                    .sense(egui::Sense::drag());
-                
+                let image_widget =
+                    egui::Image::from_texture((tex_id, available_size)).sense(egui::Sense::drag());
+
                 ui.add(image_widget);
             }
         });
     }
-
-
 }

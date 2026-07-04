@@ -8,25 +8,28 @@ pub struct VolumeCpu {
 
 impl VolumeCpu {
     pub fn to_gpu(&self, device: &wgpu::Device, queue: &wgpu::Queue) -> VolumeGpu {
-      // only move it to gpu memory
+        // only move it to gpu memory
         let texture_descriptor = wgpu::TextureDescriptor {
             label: Some("3d dicom texture"),
             size: wgpu::Extent3d {
                 width: self.width as u32,
                 height: self.height as u32,
-                depth_or_array_layers: self.depth as u32
+                depth_or_array_layers: self.depth as u32,
             },
             //TODO: check advantage of extra mips (performace?)
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D3,
             // TODO: egui_wgpu expects R16float
-            format: wgpu::TextureFormat::R16Float,
+            format: wgpu::TextureFormat::R16Uint,
             //TODO: https://gpuweb.github.io/gpuweb/#typedefdef-gputextureusageflags check
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-            view_formats: &[]
+            view_formats: &[],
         };
-
+        println!(
+            "Creating 3D texture with size: {}x{}x{}",
+            self.width, self.height, self.depth
+        );
         let texture = device.create_texture(&texture_descriptor);
 
         queue.write_texture(
@@ -50,7 +53,7 @@ impl VolumeCpu {
         );
 
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-            
+
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("3d dicom sampler"),
             address_mode_u: wgpu::AddressMode::ClampToEdge,
@@ -67,7 +70,6 @@ impl VolumeCpu {
             view,
             sampler,
         }
-
     }
 
     pub fn normalise(self) {
