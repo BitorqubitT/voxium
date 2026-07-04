@@ -277,12 +277,23 @@ impl MyApp {
                     }
                 });
                 ui.menu_button("More files", |ui| {
-                    if ui.button("Button 2 open directory").clicked() {
-                        self.path = r"D:\dataset\manifest-1771003632643\PSMA-PET-CT-Lesions\PSMA_a96814a79aa26c8f\08-16-2005-NA-PETCT whole-body PSMA-53100\4.000000-CT-10240".into();
-                        if let Err(e) = self.file_opener(ctx) {
-                            eprintln!("Error loading file: {}", e);
+                    if ui.button("Open directory...").clicked() {
+                        // 1. Trigger the native folder picker
+                        let dialog = rfd::FileDialog::new()
+                            .set_directory(r"D:\dataset"); // Optional: set a starting point
+
+                        // Use pick_folder() for directories, or pick_file() for a single file
+                        if let Some(picked_path) = dialog.pick_folder() {
+                            // 2. Assign the chosen path to your state
+                            self.path = picked_path;
+                            
+                            // 3. Try to open the files in that directory
+                            if let Err(e) = self.file_opener(ctx) {
+                                eprintln!("Error loading file: {}", e);
+                            }
                         }
-                        ui.close(); 
+                        
+                        ui.close(); // Closes the egui dropdown menu
                     }
                 });
                 ui.menu_button("Options", |ui| {

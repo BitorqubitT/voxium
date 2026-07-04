@@ -1,7 +1,5 @@
 // https://sotrh.github.io/learn-wgpu/beginner/tutorial2-surface/
 
-use crate::data::volume;
-
 pub struct Gpu {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
@@ -28,11 +26,9 @@ struct ViewSettings {
 fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
     var out: VertexOutput;
     
-    // Perform all bitwise calculations using pure u32
     let x_u32 = (vertex_index << 1u) & 2u;
     let y_u32 = vertex_index & 2u;
     
-    // Convert directly to f32 for coordinates
     let x = f32(x_u32);
     let y = f32(y_u32);
     
@@ -63,11 +59,9 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let raw_val_u32 = textureLoad(t_volume, coords, 0).r;
     let raw_val = f32(raw_val_u32); 
 
-    // Fallback background color (Dark Red for debugging boundary regions, change to BLACK later)
     var final_color = vec3<f32>(0.1, 0.0, 0.0); 
 
     if (raw_val > 0.0) {
-        // Since DICOM pixels are 0..65535, we scale the window intensity multiplier down
         let bright = raw_val * (settings.multiplier * 0.0001);
         final_color = vec3<f32>(bright, bright, bright);
     }

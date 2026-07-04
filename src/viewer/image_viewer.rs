@@ -165,7 +165,8 @@ impl ImageViewer {
         let available_size = ui.available_size();
         self.current_view_size = available_size;
 
-        ui.add(egui::Slider::new(&mut self.current_slice_depth, 0.0..=1.0).text("DICOM Slice"));
+        //TODO: remove this from viewer code
+        ui.add(egui::Slider::new(&mut self.current_slice_depth, 0.0..=3.0).text("DICOM Slice"));
 
         // render pipeline to quickly test if everything is working.
         // TODO: spit this up
