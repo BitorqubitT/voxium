@@ -2,17 +2,15 @@ use crate::data::image_source::ImageSource;
 use crate::data::volume::VolumeCpu;
 use crate::dicom::metadata::MetaData;
 use crate::gpu::gpu::Gpu;
-use crate::viewer::image_viewer::ImageViewer;
-use crate::viewer::image_viewer::ViewTransform;
+use crate::viewer::sliceviewer_2d::SliceViewer2d;
+use crate::viewer::raymarcher_3d::Raymarcher3d;
 use anyhow::Result;
 use dicom::dictionary_std::tags;
 use dicom_object::{open_file, FileDicomObject, InMemDicomObject};
 use dicom_pixeldata::PixelDecoder;
-use egui::Vec2;
 use egui_wgpu::RendererOptions;
 use image::DynamicImage;
 use std::{fs, path::PathBuf};
-// TODO: can do use crate::data::VolumeData;
 
 pub struct MyApp {
     source: Option<ImageSource>,
@@ -21,7 +19,8 @@ pub struct MyApp {
     image_size: f32,
     zoom_level: i32,
     path: PathBuf,
-    viewer: ImageViewer,
+    viewer_2d: SliceViewer2d,
+    viewer_3d: Raymarcher3d,
     meta_data: MetaData,
     pub egui_ctx: egui::Context,
     pub egui_winit: egui_winit::State,
@@ -51,6 +50,9 @@ impl MyApp {
             },
         );
 
+        let viewer_2d = SliceViewer2d::new(&gpu.device);
+        let viewer_3d = Raymarcher3d::new(&gpu.device);
+
         Self {
             source: None,
             gpu: gpu,
@@ -58,14 +60,8 @@ impl MyApp {
             image_size: 30.,
             zoom_level: 100,
             path: "data/1-1.dcm".into(),
-            viewer: ImageViewer {
-                transform: ViewTransform::default(),
-                render_target: None,
-                egui_texture_id: None,
-                //TODO: Doesnt this mess anything up?
-                current_view_size: egui::Vec2::ZERO,
-                current_slice_depth: 0.0,
-            },
+            viewer_2d,
+            viewer_3d,
             meta_data: MetaData::default(),
             egui_ctx: egui_ctx,
             egui_winit: egui_state,
@@ -266,7 +262,6 @@ impl MyApp {
 
     pub fn ui(&mut self, ctx: &egui::Context) {
         egui::Panel::top("my_top_panel").show(ctx, |ui| {
-
             egui::MenuBar::new().ui(ui, |ui| {
                 ui.menu_button("File", |ui| {
                     if ui.button("Open a file").clicked() {
@@ -279,20 +274,16 @@ impl MyApp {
                 ui.menu_button("More files", |ui| {
                     if ui.button("Open directory...").clicked() {
                         // 1. Trigger the native folder picker
-                        let dialog = rfd::FileDialog::new()
-                            .set_directory(r"D:\dataset"); // Optional: set a starting point
+                        let dialog = rfd::FileDialog::new().set_directory(r"D:\dataset"); // Optional: set a starting point
 
-                        // Use pick_folder() for directories, or pick_file() for a single file
                         if let Some(picked_path) = dialog.pick_folder() {
-                            // 2. Assign the chosen path to your state
                             self.path = picked_path;
-                            
-                            // 3. Try to open the files in that directory
+
                             if let Err(e) = self.file_opener(ctx) {
                                 eprintln!("Error loading file: {}", e);
                             }
                         }
-                        
+
                         ui.close(); // Closes the egui dropdown menu
                     }
                 });
@@ -300,12 +291,12 @@ impl MyApp {
                     if ui.button("change ferris").clicked() {
                         println!("Options 1 clicked");
                     }
-                    ui.menu_button("More options", |ui|{
+                    ui.menu_button("More options", |ui| {
                         if ui.button("More Options 1").clicked() {
                             println!("Options 1 clicked");
                             ui.close();
-                    }
-                    ui.label("Options 2");
+                        }
+                        ui.label("Options 2");
                     });
                 });
             });
@@ -333,18 +324,17 @@ impl MyApp {
 
         // Always centrapnel as last one.
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("My dicom viewer");
-
-            if ui.input(|i| i.key_pressed(egui::Key::N)) {
-                // TODO: eventually add these methods again
-                //self.viewer.next_slice(ctx);
-            };
-            if ui.input(|i| i.key_pressed(egui::Key::P)) {
-                //self.viewer.prev_slice(ctx);
-            };
-            //TODO: Change this, we dont load in ui, we just render
-            self.viewer
-                .ui(ui, self.source.as_ref(), &mut self.egui_renderer, &self.gpu);
+            egui::Panel::left("main_left").show_inside(ui, |ui| {
+                ui.heading("My dicom viewer");
+                //TODO: Change this, we dont load in ui, we just render
+                self.viewer_2d
+                    .ui(ui, self.source.as_ref(), &mut self.egui_renderer, &self.gpu);
+            });
+            egui::Panel::left("main_right").show_inside(ui, |ui| {
+                ui.heading("My dicom viewer2");
+                self.viewer_3d
+                    .ui(ui, self.source.as_ref(), &mut self.egui_renderer, &self.gpu);
+            });
         });
     }
 }
