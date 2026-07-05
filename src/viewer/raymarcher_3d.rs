@@ -4,73 +4,6 @@ use crate::data::volume::VolumeGpu;
 use crate::gpu::gpu::Gpu;
 use wgpu::util::DeviceExt;
 
-
-
-const SHADER_SRC: &str = r#"
-struct VertexOutput {
-    @builtin(position) position: vec4<f32>,
-    @location(0) uv: vec2<f32>,
-};
-
-struct ViewSettings {
-    slice_depth: f32,
-    window_center: f32,
-    window_width: f32,
-    padding: f32,
-};
-
-@vertex
-fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
-    var out: VertexOutput;
-    
-    let x_u32 = (vertex_index << 1u) & 2u;
-    let y_u32 = vertex_index & 2u;
-    
-    let x = f32(x_u32);
-    let y = f32(y_u32);
-    
-    out.uv = vec2<f32>(x, y);
-    
-    // Map UV space (0..2) to WebGPU Clip Space (-1..1)
-    out.position = vec4<f32>(x * 2.0 - 1.0, 1.0 - y * 2.0, 0.0, 1.0);
-    
-    return out;
-}
-
-@group(0) @binding(0) var t_volume: texture_3d<u32>; // Unsigned Integer texture
-@group(0) @binding(2) var<uniform> settings: ViewSettings;
-
-@fragment
-fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let tex_size = textureDimensions(t_volume);
-    
-    // Clamp the coordinates to [0.0, 0.999] to guarantee we don't round up out of bounds
-    let coords = vec3<i32>(
-        i32(clamp(in.uv.x, 0.0, 0.999) * f32(tex_size.x)),
-        i32(clamp(in.uv.y, 0.0, 0.999) * f32(tex_size.y)),
-        i32(clamp(settings.slice_depth, 0.0, 0.999) * f32(tex_size.z))
-    );
-    
-    // Load the raw voxel value directly
-    let raw_val_u32 = textureLoad(t_volume, coords, 0).r;
-    
-    // We 1024 here to get true Hounsfield Units, and slicer values are standard:
-    let raw_val = f32(raw_val_u32) - 1024.0;
-
-    let half_width = settings.window_width / 2.0;
-    let lower_bound = settings.window_center - half_width;
-    
-    // Scale the voxel value linearly between lower_bound and upper_bound
-    let normalized_bright = (raw_val - lower_bound) / settings.window_width;
-    
-    let final_bright = clamp(normalized_bright, 0.0, 1.0);
-    
-    let final_color = vec3<f32>(final_bright, final_bright, final_bright);
-    
-    return vec4<f32>(final_color, 1.0);
-}
-"#;
-
 pub struct ViewTransform {
     pub zoom: f32,
     pub offset: egui::Vec2,
@@ -86,8 +19,13 @@ impl Default for ViewTransform {
     }
 }
 
-// use these for offscreen 2d view.
-//TODO: Change this
+#[repr(C)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct CameraUniform {
+    pub inv_view_proj: [[f32; 4]; 4],
+    pub camera_pos: [f32; 4],
+}
+
 pub struct RenderTarget3d {
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
@@ -95,11 +33,7 @@ pub struct RenderTarget3d {
     pub height: u32,
 }
 
-// Want to render to a output canvas in imageviewer. (the we give id and paint in egui i think, check this)
 pub struct Raymarcher3d {
-    // TODO: Remove this, because it will keep giving ownership problems. App owns source.
-    //pub source: Option<ImageSource>,
-    // TODO: check these again
     pub render_pipeline: wgpu::RenderPipeline,
     pub bind_group_layout: wgpu::BindGroupLayout,
     pub sampler: wgpu::Sampler,
@@ -107,36 +41,39 @@ pub struct Raymarcher3d {
     pub render_target: Option<RenderTarget3d>,
     pub current_view_size: egui::Vec2,
     pub egui_texture_id: Option<egui::TextureId>,
-    pub current_slice_depth: f32,
-    pub window_center: f32,
-    pub window_width: f32,
+
+    pub camera_pitch: f32,
+    pub camera_yaw: f32,
+    pub camera_buffer: wgpu::Buffer,
 }
 
 impl Raymarcher3d {
     pub fn new(device: &wgpu::Device) -> Self {
-        let (render_pipeline, bind_group_layout, sampler) = Raymarcher3d::pipeline(device);
+        let (pipeline, layout, sampler, pitch, yaw, buffer) = Raymarcher3d::pipeline(device);
 
         Self {
-            render_pipeline,
-            bind_group_layout,
+            render_pipeline: pipeline,
+            bind_group_layout: layout,
             sampler,
             transform: ViewTransform::default(),
             render_target: None,
             current_view_size: egui::Vec2::ZERO,
             egui_texture_id: None,
-            current_slice_depth: 0.0,
-            window_center: 40.0,
-            window_width: 400.0,
+            camera_pitch: pitch,
+            camera_yaw: yaw,
+            camera_buffer: buffer,
         }
     }
 
     pub fn ui(
         &mut self,
-        //maybe remove option, we only call this when there is a source?
         ui: &mut egui::Ui,
         source: Option<&ImageSource>,
         egui_renderer: &mut egui_wgpu::Renderer,
         gpu: &Gpu,
+        windows_center: f32,
+        window_width: f32,
+        zoom: f32,
     ) {
         let source = match source {
             Some(src) => src,
@@ -146,10 +83,8 @@ impl Raymarcher3d {
 
         match source {
             ImageSource::Single(single) => {
-                //TODO: check if we want to keep calling this. Or is there a better way
                 self.render_image(ui, &single);
             }
-            // TODO: What do i want here? Just check if volume.gpu is present and then run render_volume using self.
             ImageSource::Volume(volume) => {
                 if let Some(ref volume_gpu) = volume.gpu {
                     self.recreate_canvas(
@@ -158,20 +93,24 @@ impl Raymarcher3d {
                         available_size.y as u32,
                     );
 
-                    // Need clone, old situation: pass ref to self with an exlsuive mutable access. wont work
-                    // image is 2d so cheap i guess
                     let canvas_view = self
                         .render_target
                         .as_ref()
                         .map(|target| target.view.clone());
 
-                    // Give internal 2d view to renderer
-                    // Dont actually need to give volume_gpu
-                    if let Some(view) = canvas_view {
-                        self.render_volume_2d(ui, egui_renderer, gpu, volume_gpu);
+                    if let Some(_) = canvas_view {
+                        // Triggers the 3D rendering pass safely
+                        self.render_volume_3d(
+                            ui,
+                            egui_renderer,
+                            gpu,
+                            volume_gpu,
+                            windows_center,
+                            window_width,
+                            zoom,
+                        );
                     }
                 } else {
-                    // TODO: add some code to fill center
                     let (rect, _) = ui.allocate_exact_size(available_size, egui::Sense::hover());
                     ui.painter().text(
                         rect.center(),
@@ -192,18 +131,16 @@ impl Raymarcher3d {
             }
         }
 
-        // 1. Create the virtual screen)
         let texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("egui_volume_render_target_3d"),
             size: wgpu::Extent3d {
                 width,
                 height,
-                depth_or_array_layers: 1, //2D image
+                depth_or_array_layers: 1,
             },
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            // Diff type maybe?
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
             view_formats: &[],
@@ -211,7 +148,6 @@ impl Raymarcher3d {
 
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        // 3. Save it
         self.render_target = Some(RenderTarget3d {
             texture,
             view,
@@ -219,15 +155,13 @@ impl Raymarcher3d {
             height,
         });
 
-        // Reset so the new updated texture handle on the next frame!
         self.egui_texture_id = None;
     }
 
     fn render_image(&mut self, ui: &mut egui::Ui, image: &ImageData) {
         let image_size = image.size * self.transform.zoom;
-
         let available = ui.available_size();
-        let (rect, response) = ui.allocate_exact_size(available, egui::Sense::drag());
+        let (rect, _) = ui.allocate_exact_size(available, egui::Sense::drag());
 
         let image_rect = egui::Rect::from_min_size(
             rect.center() - image_size * 0.5 + self.transform.offset,
@@ -242,109 +176,116 @@ impl Raymarcher3d {
         );
     }
 
-    pub fn render_volume_2d(
+    pub fn render_volume_3d(
         &mut self,
         ui: &mut egui::Ui,
         egui_renderer: &mut egui_wgpu::Renderer,
         gpu: &Gpu,
         volume_gpu: &VolumeGpu,
+        windows_center: f32,
+        window_width: f32,
+        zoom_boy: f32,
     ) {
-        ui.label("volume ready on gpu");
         let available_size = ui.available_size();
         self.current_view_size = available_size;
 
-        //TODO: Raymarching we need a second pipeline
-        // need a camera
-        // depending on camera angle we fire rays into the volume and we draw based on when they enter and leave
-        //TODO: remove this from viewer code
-        ui.add(egui::Slider::new(&mut self.current_slice_depth, 0.0..=1.0).text("DICOM Slice"));
-        ui.add(
-            egui::Slider::new(&mut self.window_center, -1000.0..=1000.0)
-                .text("Window Center (Brightness)"),
+        // 1. Calculate the camera position in world space by rotating a back-vector
+        let rotation = glam::Mat4::from_rotation_y(self.camera_yaw)
+            * glam::Mat4::from_rotation_x(self.camera_pitch);
+        
+        let camera_pos = rotation.transform_point3(glam::Vec3::new(0.0, 0.0, zoom_boy));
+
+        // 2. Build a proper View Matrix that looks at the center of the dataset (0, 0, 0)
+        let view = glam::Mat4::look_at_lh(
+            camera_pos,       
+            glam::Vec3::ZERO, 
+            glam::Vec3::Y,
         );
-        ui.add(
-            egui::Slider::new(&mut self.window_width, 1.0..=2000.0).text("Window Width (Contrast)"),
-        );
 
-        // render pipeline to quickly test if everything is working.
-        // TODO: spit this up
-        if let Some(ref target) = self.render_target {
-            // 1. Recreate the small uniform buffer for the modified slice depth frame data
-            //println!("Rendering slice at depth: {}", self.current_slice_depth);
-            let settings_data = [
-                self.current_slice_depth,
-                self.window_center,
-                self.window_width,
-                0.0f32,
-            ];
+        // 3. Match the aspect ratio of your actual egui UI panel so it doesn't stretch
+        let aspect_ratio = available_size.x / available_size.y;
+        let proj = glam::Mat4::perspective_lh(45.0f32.to_radians(), aspect_ratio, 0.1, 10.0);
 
-            let settings_buffer =
-                gpu.device
-                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                        label: Some("slice_settings_uniform"),
-                        contents: bytemuck::cast_slice(&settings_data),
-                        usage: wgpu::BufferUsages::UNIFORM,
-                    });
+        // 4. Combine them and invert
+        let inv_view_proj = (proj * view).inverse();
 
-            // 2. Build the lightweight frame BindGroup linking to the cached layout
-            let bind_group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: Some("slice_test_bg"),
-                layout: &self.bind_group_layout, // Using cached layout
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureView(&volume_gpu.view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::Sampler(&self.sampler), // Can also be stored in Gpu
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 2,
-                        resource: settings_buffer.as_entire_binding(),
-                    },
-                ],
+        let camera_data = CameraUniform {
+            inv_view_proj: inv_view_proj.to_cols_array_2d(),
+            camera_pos: [camera_pos.x, camera_pos.y, camera_pos.z, 1.0],
+        };
+
+        // 2. Safely updated with prefixed gpu configurations
+        gpu.queue
+            .write_buffer(&self.camera_buffer, 0, bytemuck::bytes_of(&camera_data));
+
+        // 3. Recreate the dynamic settings block matching WGSL alignments
+        let settings_data = [0.0f32, windows_center, window_width, 0.0f32];
+        let settings_buffer = gpu
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("raymarch_settings_uniform"),
+                contents: bytemuck::cast_slice(&settings_data),
+                usage: wgpu::BufferUsages::UNIFORM,
             });
 
-            // 3. Execute the RenderPass using gpu.device and encoder
-            let mut encoder = gpu
-                .device
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("volume_slice_render_encoder"),
-                });
+        // 4. Extract target view safely out of Option
+        let target_view = &self.render_target.as_ref().unwrap().view;
 
-            {
-                let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                    label: Some("Volume Slice Pass"),
-                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                        view: &target.view, // Draw onto our virtual offscreen target texture!
-                        depth_slice: None,
-                        resolve_target: None,
-                        ops: wgpu::Operations {
-                            load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-                            store: wgpu::StoreOp::Store,
-                        },
-                    })],
-                    depth_stencil_attachment: None,
-                    occlusion_query_set: None,
-                    timestamp_writes: None,
-                    multiview_mask: None,
-                });
+        // 5. Package bindings using the existing volume reference
+        let bind_group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("raymarch_bind_group"),
+            layout: &self.bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&volume_gpu.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: self.camera_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: settings_buffer.as_entire_binding(),
+                },
+            ],
+        });
 
-                render_pass.set_pipeline(&self.render_pipeline);
-                render_pass.set_bind_group(0, &bind_group, &[]);
-                render_pass.draw(0..3, 0..1);
-            }
+        let mut encoder = gpu
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("raymarch_encoder"),
+            });
+        {
+            let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("raymarch_render_pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: target_view,
+                    depth_slice: None,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
 
-            gpu.queue.submit(std::iter::once(encoder.finish()));
+            rpass.set_pipeline(&self.render_pipeline);
+            rpass.set_bind_group(0, &bind_group, &[]);
+            rpass.draw(0..3, 0..1);
         }
 
-        // Pass the rendered view to egui
+        gpu.queue.submit(Some(encoder.finish()));
+
         if self.egui_texture_id.is_none() {
             if let Some(ref target) = self.render_target {
                 let tex_id = egui_renderer.register_native_texture(
                     &gpu.device,
-                    &target.view, // Use the real rendering destination
+                    &target.view,
                     wgpu::FilterMode::Linear,
                 );
                 self.egui_texture_id = Some(tex_id);
@@ -352,53 +293,66 @@ impl Raymarcher3d {
         }
 
         ui.vertical(|ui| {
-            ui.label("Rendering via offscreen GPU Texture:");
-
             if let Some(tex_id) = self.egui_texture_id {
                 let image_widget =
                     egui::Image::from_texture((tex_id, available_size)).sense(egui::Sense::drag());
 
-                ui.add(image_widget);
+                let response = ui.add(image_widget);
+
+                if response.dragged() {
+                    self.camera_yaw += response.drag_delta().x * 0.01;
+                    self.camera_pitch += response.drag_delta().y * 0.01;
+                }
             }
         });
     }
 
     pub fn pipeline(
         device: &wgpu::Device,
-    ) -> (wgpu::RenderPipeline, wgpu::BindGroupLayout, wgpu::Sampler) {
+    ) -> (
+        wgpu::RenderPipeline,
+        wgpu::BindGroupLayout,
+        wgpu::Sampler,
+        f32,
+        f32,
+        wgpu::Buffer,
+    ) {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("slice_test_shader"),
-            source: wgpu::ShaderSource::Wgsl(SHADER_SRC.into()),
+            label: Some("raymarch_shader"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("raymarch.wgsl").into()),
         });
 
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            label: Some("slice_test_sampler"),
+            label: Some("raymarch_sampler"),
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::MipmapFilterMode::Nearest,
             ..Default::default()
         });
 
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("slice_test_layout"),
+            label: Some("raymarch_bind_group_layout"),
             entries: &[
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Texture {
                         sample_type: wgpu::TextureSampleType::Uint,
-                        view_dimension: wgpu::TextureViewDimension::D3, // Crucial: It's 3D!
+                        view_dimension: wgpu::TextureViewDimension::D3,
                         multisampled: false,
                     },
                     count: None,
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    visibility: wgpu::ShaderStages::FRAGMENT | wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
                     count: None,
                 },
                 wgpu::BindGroupLayoutEntry {
@@ -414,16 +368,14 @@ impl Raymarcher3d {
             ],
         });
 
-        let bind_group_layout_ref = &bind_group_layout;
-
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("slice_test_pipeline_layout"),
-            bind_group_layouts: &[Some(bind_group_layout_ref)],
+            label: Some("raymarch_pipeline_layout"),
+            bind_group_layouts: &[Some(&bind_group_layout)],
             immediate_size: 0,
         });
 
-        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("slice_test_pipeline"),
+        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("raymarch_render_pipeline"),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
@@ -435,8 +387,8 @@ impl Raymarcher3d {
                 module: &shader,
                 entry_point: Some("fs_main"),
                 targets: &[Some(wgpu::ColorTargetState {
-                    format: wgpu::TextureFormat::Rgba8UnormSrgb, // Canvas Target Format
-                    blend: Some(wgpu::BlendState::REPLACE),
+                    format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
                 compilation_options: Default::default(),
@@ -448,6 +400,22 @@ impl Raymarcher3d {
             multiview_mask: None,
         });
 
-        (render_pipeline, bind_group_layout, sampler)
+        let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("camera_uniform_buffer"),
+            contents: bytemuck::bytes_of(&CameraUniform {
+                inv_view_proj: glam::Mat4::IDENTITY.to_cols_array_2d(),
+                camera_pos: [0.0, 0.0, -2.0, 1.0],
+            }),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        (
+            pipeline,
+            bind_group_layout,
+            sampler,
+            0.0,
+            0.0,
+            camera_buffer,
+        )
     }
 }

@@ -2,8 +2,8 @@ use crate::data::image_source::ImageSource;
 use crate::data::volume::VolumeCpu;
 use crate::dicom::metadata::MetaData;
 use crate::gpu::gpu::Gpu;
-use crate::viewer::sliceviewer_2d::SliceViewer2d;
 use crate::viewer::raymarcher_3d::Raymarcher3d;
+use crate::viewer::sliceviewer_2d::SliceViewer2d;
 use anyhow::Result;
 use dicom::dictionary_std::tags;
 use dicom_object::{open_file, FileDicomObject, InMemDicomObject};
@@ -15,9 +15,6 @@ use std::{fs, path::PathBuf};
 pub struct MyApp {
     source: Option<ImageSource>,
     pub gpu: Gpu,
-    height: u32,
-    image_size: f32,
-    zoom_level: i32,
     path: PathBuf,
     viewer_2d: SliceViewer2d,
     viewer_3d: Raymarcher3d,
@@ -25,6 +22,10 @@ pub struct MyApp {
     pub egui_ctx: egui::Context,
     pub egui_winit: egui_winit::State,
     pub egui_renderer: egui_wgpu::Renderer,
+    pub zoom_boy: f32,
+    pub current_slice: f32,
+    pub window_center: f32,
+    pub window_width: f32,
 }
 
 impl MyApp {
@@ -56,9 +57,6 @@ impl MyApp {
         Self {
             source: None,
             gpu: gpu,
-            height: 180,
-            image_size: 30.,
-            zoom_level: 100,
             path: "data/1-1.dcm".into(),
             viewer_2d,
             viewer_3d,
@@ -66,6 +64,10 @@ impl MyApp {
             egui_ctx: egui_ctx,
             egui_winit: egui_state,
             egui_renderer: egui_renderer,
+            zoom_boy: 4.0,
+            current_slice: 0.0,
+            window_center: 40.0,
+            window_width: 400.0,
         }
     }
 
@@ -162,7 +164,6 @@ impl MyApp {
                 }
 
                 self.source = Some(image_source);
-                println!("we move it to the gpu");
             }
 
             _ => return Err("Unsupported file type".into()),
@@ -263,15 +264,7 @@ impl MyApp {
     pub fn ui(&mut self, ctx: &egui::Context) {
         egui::Panel::top("my_top_panel").show(ctx, |ui| {
             egui::MenuBar::new().ui(ui, |ui| {
-                ui.menu_button("File", |ui| {
-                    if ui.button("Open a file").clicked() {
-                        if let Err(e) = self.file_opener(ctx) {
-                            eprintln!("Error loading file: {}", e);
-                        }
-                        ui.close();
-                    }
-                });
-                ui.menu_button("More files", |ui| {
+                ui.menu_button("Files", |ui| {
                     if ui.button("Open directory...").clicked() {
                         // 1. Trigger the native folder picker
                         let dialog = rfd::FileDialog::new().set_directory(r"D:\dataset"); // Optional: set a starting point
@@ -303,17 +296,13 @@ impl MyApp {
         });
 
         egui::Panel::left("my_side_panel").show(ctx, |ui| {
-            ui.heading("Left panel");
-            ui.label("Add more widgets here.");
-            ui.add(egui::Slider::new(&mut self.height, 140..=220).text("height"));
-            ui.add(egui::Slider::new(&mut self.image_size, 50.0..=900.0).text("image size"));
-            ui.add(egui::Slider::new(&mut self.zoom_level, 40..=150).text("zoom level"));
+            ui.heading("Overview");
             ui.label(format!(
                 "Patient id: {}",
                 self.meta_data.patient_id.as_deref().unwrap_or("N/A")
             ));
             ui.label(format!(
-                "Patient height: {}",
+                "Patient name: {}",
                 self.meta_data.patient_name.as_deref().unwrap_or("N/A")
             ));
             ui.label(format!(
@@ -324,16 +313,42 @@ impl MyApp {
 
         // Always centrapnel as last one.
         egui::CentralPanel::default().show(ctx, |ui| {
+            ui.add(egui::Slider::new(&mut self.zoom_boy, -255.0..=255.0).text("Window Center"));
+            ui.add(egui::Slider::new(&mut self.current_slice, 0.0..=1.0).text("DICOM Slice"));
+            ui.add(
+                egui::Slider::new(&mut self.window_center, -1000.0..=1000.0)
+                    .text("Window Center (Brightness)"),
+            );
+            ui.add(
+                egui::Slider::new(&mut self.window_width, 1.0..=2000.0)
+                    .text("Window Width (Contrast)"),
+            );
+
             egui::Panel::left("main_left").show_inside(ui, |ui| {
-                ui.heading("My dicom viewer");
-                //TODO: Change this, we dont load in ui, we just render
-                self.viewer_2d
-                    .ui(ui, self.source.as_ref(), &mut self.egui_renderer, &self.gpu);
+                ui.set_min_width(800.0);
+                ui.heading("2d view");
+                self.viewer_2d.ui(
+                    ui,
+                    self.source.as_ref(),
+                    &mut self.egui_renderer,
+                    &self.gpu,
+                    self.window_center,
+                    self.window_width,
+                    self.current_slice,
+                );
             });
             egui::Panel::left("main_right").show_inside(ui, |ui| {
-                ui.heading("My dicom viewer2");
-                self.viewer_3d
-                    .ui(ui, self.source.as_ref(), &mut self.egui_renderer, &self.gpu);
+                ui.set_min_width(800.0);
+                ui.heading("3d view");
+                self.viewer_3d.ui(
+                    ui,
+                    self.source.as_ref(),
+                    &mut self.egui_renderer,
+                    &self.gpu,
+                    self.window_center,
+                    self.window_width,
+                    self.zoom_boy,
+                );
             });
         });
     }

@@ -1,29 +1,23 @@
-# GOAL
-Writing a DICOM viewer for fun
+# DICOM viewer
 
-# Architecture idea
-    winit (window + events)
-    wgpu (render pipeline)
-    render CT slice or ray march into texture
-    egui shows that texture
-    sliders control uniforms (window/level)
+A toy project to learn more Rust and GPU rendering. This is not a serious DICOM viewer, but it can load and display DICOM images in 2D and 3D.
 
-# TODO:
-- cleanup code
-- create rendering pipeline instead of putting everything in render volume
-- Want to be able to create multipleviews (one 3d camera one 2d slice inspector)
-- Let app change viewtransform for zooming etc.
+![Demo](assets/avwv7f.gif)
 
+## Lessons learned
 
-new setup:
-At the moment it works like this:
-- load images to cpu
-- do some augmentations and check order
-- load images to gpu
-- Pass image to viewer
-- Viewer creates a second canvas where it renders the test "slice"
-- Send view to egui via widget and ui
-  
+- wgpu is difficult to learn.
+- Syncing egui,winit,wgpu versoins is very important
+- I couldnt get it to work with eframe, so I swapped that out.
 
-# Extra: 
-- segmentation 
+## What it does
+
+- loads DICOM data
+- parses metadata and pixel data
+- renders the image in a viewer window 2d and 3d with raymarching
+
+## TODOs
+
+- clean up the code, remove some old stuff
+- improve loading and error handling
+- maybe add some more features

@@ -100,9 +100,6 @@ pub struct SliceViewer2d {
     pub render_target: Option<RenderTarget2d>,
     pub current_view_size: egui::Vec2,
     pub egui_texture_id: Option<egui::TextureId>,
-    pub current_slice_depth: f32,
-    pub window_center: f32,
-    pub window_width: f32,
 }
 
 impl SliceViewer2d {
@@ -117,9 +114,6 @@ impl SliceViewer2d {
             render_target: None,
             current_view_size: egui::Vec2::ZERO,
             egui_texture_id: None,
-            current_slice_depth: 0.0,
-            window_center: 40.0,
-            window_width: 400.0,
         }
     }
 
@@ -129,6 +123,9 @@ impl SliceViewer2d {
         source: Option<&ImageSource>,
         egui_renderer: &mut egui_wgpu::Renderer,
         gpu: &Gpu,
+        window_center: f32,
+        window_width: f32,
+        current_slice: f32,
     ) {
         let source = match source {
             Some(src) => src,
@@ -160,7 +157,7 @@ impl SliceViewer2d {
                     // Give internal 2d view to renderer
                     // Dont actually need to give volume_gpu
                     if let Some(view) = canvas_view {
-                        self.render_volume_2d(ui, egui_renderer, gpu, volume_gpu);
+                        self.render_volume_2d(ui, egui_renderer, gpu, volume_gpu, window_center, current_slice, window_width);
                     }
                 } else {
                     // TODO: add some code to fill center
@@ -240,30 +237,23 @@ impl SliceViewer2d {
         egui_renderer: &mut egui_wgpu::Renderer,
         gpu: &Gpu,
         volume_gpu: &VolumeGpu,
+        window_center: f32,
+        current_slice_depth: f32,
+        window_width: f32,
+
     ) {
         ui.label("volume ready on gpu");
         let available_size = ui.available_size();
         self.current_view_size = available_size;
 
-        //TODO: remove this from viewer code
-        ui.add(egui::Slider::new(&mut self.current_slice_depth, 0.0..=1.0).text("DICOM Slice"));
-        ui.add(
-            egui::Slider::new(&mut self.window_center, -1000.0..=1000.0)
-                .text("Window Center (Brightness)"),
-        );
-        ui.add(
-            egui::Slider::new(&mut self.window_width, 1.0..=2000.0).text("Window Width (Contrast)"),
-        );
-
         // render pipeline to quickly test if everything is working.
         // TODO: spit this up
         if let Some(ref target) = self.render_target {
             // 1. Recreate the small uniform buffer for the modified slice depth frame data
-            //println!("Rendering slice at depth: {}", self.current_slice_depth);
             let settings_data = [
-                self.current_slice_depth,
-                self.window_center,
-                self.window_width,
+                current_slice_depth,
+                window_center,
+                window_width,
                 0.0f32,
             ];
 
