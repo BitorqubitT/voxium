@@ -266,19 +266,23 @@ impl MyApp {
             egui::MenuBar::new().ui(ui, |ui| {
                 ui.menu_button("Files", |ui| {
                     if ui.button("Open directory...").clicked() {
-                        // 1. Trigger the native folder picker
                         let dialog = rfd::FileDialog::new().set_directory(r"D:\dataset"); // Optional: set a starting point
 
-                        if let Some(picked_path) = dialog.pick_folder() {
+                        let picked_path = dialog
+                            .clone()
+                            .pick_folder()
+                            .or_else(|| dialog.pick_file());
+
+                        if let Some(picked_path) = picked_path {
                             self.path = picked_path;
 
                             if let Err(e) = self.file_opener(ctx) {
                                 eprintln!("Error loading file: {}", e);
                             }
                         }
-
                         ui.close(); // Closes the egui dropdown menu
                     }
+
                 });
                 ui.menu_button("Options", |ui| {
                     if ui.button("change ferris").clicked() {
